@@ -2,151 +2,186 @@
 @tailwind components;
 @tailwind utilities;
 
-/* DaisyUI theme overrides for WooSwap gamification */
-:root {
-  --animation-btn: 0.25s;
-  --animation-input: 0.2s;
-  --btn-text-case: uppercase;
-  --btn-focus-scale: 0.95;
-  --border-btn: 1px;
-  --tab-border: 1px;
-  --tab-radius: 0.5rem;
-}
-
-/* Custom confetti animation for rebates */
-@keyframes confetti {
-  0% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 1;
+/* Custom WooSwap styles */
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
   }
-  100% {
-    transform: translateY(-100vh) rotate(720deg);
-    opacity: 0;
+
+  body {
+    @apply bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900;
+    @apply min-h-screen;
+    @apply text-white;
   }
 }
 
-.confetti {
-  animation: confetti 3s ease-out forwards;
-}
-
-/* Custom gradient for affection progress bar */
-.progress-affection {
-  background: linear-gradient(to right, #ef4444, #f59e0b, #10b981);
-}
-
-/* Pulsing hearts animation for high affection */
-@keyframes pulse-heart {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
-
-.pulse-heart {
-  animation: pulse-heart 2s ease-in-out infinite;
-}
-
-/* Gamified card hover effects */
-.card-hover {
-  transition: all 0.3s ease;
-}
-
-.card-hover:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-/* Custom button glow for CTA */
-.btn-glow {
-  box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
-  transition: box-shadow 0.3s ease;
-}
-
-.btn-glow:hover {
-  box-shadow: 0 0 30px rgba(102, 126, 234, 0.7);
-}
-
-/* Loading spinner customization */
-.loading-woo {
-  border-top-color: #667eea;
-  animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Chat bubble animations */
-.chat-bubble-appear {
-  animation: bubble-appear 0.5s ease-out;
-}
-
-@keyframes bubble-appear {
-  0% {
-    transform: scale(0.3) translateY(20px);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Affection tier badge styles */
-.badge-bronze {
-  background: linear-gradient(45deg, #CD7F32, #A0522D);
-  color: white;
-}
-
-.badge-silver {
-  background: linear-gradient(45deg, #C0C0C0, #808080);
-  color: white;
-}
-
-.badge-gold {
-  background: linear-gradient(45deg, #FFD700, #FFA500);
-  color: white;
-}
-
-/* Leaderboard table animations */
-.leaderboard-row {
-  transition: all 0.2s ease;
-}
-
-.leaderboard-row:hover {
-  background-color: rgba(102, 126, 234, 0.1);
-  transform: scale(1.02);
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .card {
-    margin: 0.5rem;
+@layer components {
+  .btn-woo {
+    @apply btn btn-primary;
+    @apply bg-gradient-to-r from-pink-500 to-purple-600;
+    @apply hover:from-pink-600 hover:to-purple-700;
+    @apply border-none;
+    @apply shadow-lg shadow-pink-500/25;
+    @apply transition-all duration-300;
   }
 
-  .hero-content {
-    padding: 1rem;
+  .btn-woo:hover {
+    @apply scale-105 shadow-xl shadow-pink-500/40;
+  }
+
+  .card-woo {
+    @apply card bg-base-100/10 backdrop-blur-md;
+    @apply border border-white/20;
+    @apply shadow-xl shadow-black/20;
+    @apply transition-all duration-300;
+  }
+
+  .card-woo:hover {
+    @apply transform scale-105;
+    @apply shadow-2xl shadow-pink-500/20;
+    @apply border-pink-500/30;
+  }
+
+  .input-woo {
+    @apply input input-bordered;
+    @apply bg-white/10 backdrop-blur-sm;
+    @apply border-white/30;
+    @apply placeholder-white/60;
+    @apply text-white;
+    @apply focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20;
+  }
+
+  .progress-woo {
+    @apply progress progress-primary;
+    @apply bg-white/20;
+  }
+
+  .badge-woo {
+    @apply badge badge-primary;
+    @apply bg-gradient-to-r from-pink-500 to-purple-600;
+    @apply border-none;
+    @apply text-white;
+  }
+
+  .stat-woo {
+    @apply stat;
+    @apply bg-white/5;
+    @apply backdrop-blur-sm;
+    @apply border border-white/10;
+    @apply rounded-lg;
+  }
+
+  .navbar-woo {
+    @apply navbar;
+    @apply bg-black/20;
+    @apply backdrop-blur-md;
+    @apply border-b border-white/10;
+  }
+
+  .hero-woo {
+    @apply hero min-h-screen;
+    @apply bg-cyber-grid;
+  }
+
+  .companion-card {
+    @apply relative overflow-hidden;
+    @apply bg-gradient-to-br from-purple-500/20 to-pink-500/20;
+    @apply border-2 border-transparent;
+    @apply transition-all duration-500;
+  }
+
+  .companion-card:hover {
+    @apply border-pink-400;
+    @apply shadow-2xl shadow-pink-500/30;
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .affection-glow {
+    animation: heartbeat 1.5s ease-in-out infinite;
+  }
+
+  .quest-card {
+    @apply bg-gradient-to-r from-blue-500/10 to-cyan-500/10;
+    @apply border border-blue-400/30;
+    @apply transition-all duration-300;
+  }
+
+  .quest-card:hover {
+    @apply border-blue-400;
+    @apply shadow-lg shadow-blue-500/20;
+  }
+
+  .swap-interface {
+    @apply bg-gradient-to-br from-green-500/10 to-emerald-500/10;
+    @apply border border-green-400/30;
+    @apply rounded-2xl;
+  }
+
+  .floating-element {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .pulse-glow {
+    animation: glow 2s ease-in-out infinite alternate;
   }
 }
 
-/* Dark mode support */
-[data-theme="dark"] {
-  .progress-affection {
-    background: linear-gradient(to right, #dc2626, #d97706, #059669);
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
   }
 
-  .btn-glow {
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  .bg-glass {
+    @apply bg-white/10 backdrop-blur-md;
   }
 
-  .btn-glow:hover {
-    box-shadow: 0 0 30px rgba(139, 92, 246, 0.7);
+  .border-glass {
+    @apply border border-white/20;
   }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-black/20;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-pink-500/50 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-pink-500/70;
+}
+
+/* Animations */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes glow {
+  0% { box-shadow: 0 0 5px #ec4899, 0 0 10px #ec4899, 0 0 15px #ec4899; }
+  100% { box-shadow: 0 0 10px #ec4899, 0 0 20px #ec4899, 0 0 30px #ec4899; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Loading animations */
+.loading-dots {
+  animation: loading-dots 1.4s infinite ease-in-out both;
+}
+
+.loading-dots:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes loading-dots {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
 }

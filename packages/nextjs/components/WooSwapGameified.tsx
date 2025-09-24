@@ -1,621 +1,609 @@
-'use client';
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseEther, formatEther } from 'viem'
+import toast from 'react-hot-toast'
+import { CONTRACT_ADDRESSES } from '../utils/contracts'
+import { WOO_ROUTER_ABI, WOO_RELATION_NFT_ABI } from '../utils/abis'
 
-import { useState, useEffect } from 'react';
-import {
-  useAccount,
-  useReadContract,
-  useWriteContract,
-  useSwitchChain,
-  useChainId
-} from 'wagmi';
-import { parseEther, type Address, keccak256, encodeAbiParameters } from 'viem';
-import { toast } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CONTRACT_ADDRESSES, TOKEN_ADDRESSES } from '../utils/contracts';
-import {
-  WOO_RELATION_NFT_ABI,
-  WOO_ROUTER_ABI,
-  WOO_GUARD_ABI,
-  ERC20_ABI
-} from '../utils/abis';
-
-// Monad Testnet Configuration - Real chain config
-export const monadChain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz', 'https://rpc.testnet.monad.xyz'] },
-  },
-  blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
-  },
-} as const;
-
-interface Quest {
-  reply: string;
-  code: number;
-  questId: string;
-  questHash: string;
-  validUntil: number;
-  eduMode?: boolean;
+interface Companion {
+  id: number
+  name: string
+  type: 'cute' | 'mysterious' | 'energetic' | 'wise'
+  affection: number
+  level: number
+  avatar: string
+  personality: string
 }
 
-interface TopUser {
-  address: string;
-  totalVolume: number;
-  swapCount: number;
-  currentAffection: number;
-  totalRebates: number;
+interface Quest {
+  id: string
+  title: string
+  description: string
+  reward: number
+  type: 'educational' | 'social' | 'trading'
+  completed: boolean
+  expiresAt: Date
 }
 
 export default function WooSwapGameified() {
-  const { address: user, isConnected } = useAccount();
-  const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
-  const { writeContract, isPending: isWritePending } = useWriteContract();
+  const { address, isConnected } = useAccount()
+  const [activeTab, setActiveTab] = useState<'companion' | 'quest' | 'swap' | 'leaderboard'>('companion')
+  const [companion, setCompanion] = useState<Companion | null>(null)
+  const [quests, setQuests] = useState<Quest[]>([])
+  const [isGeneratingQuest, setIsGeneratingQuest] = useState(false)
+  const [swapAmount, setSwapAmount] = useState('')
+  const [giftAmount, setGiftAmount] = useState('')
 
-  const [swapAmount, setSwapAmount] = useState('1');
-  const [quest, setQuest] = useState<Quest | null>(null);
-  const [isLoadingQuest, setIsLoadingQuest] = useState(false);
-  const [breakupTimer, setBreakupTimer] = useState<number>(0);
-  const [showRebateAnimation, setShowRebateAnimation] = useState(false);
-  const [topUsers, setTopUsers] = useState<TopUser[]>([]);
-  const [userInput, setUserInput] = useState('');
+  const { writeContract, data: txHash, isPending: isWriting } = useWriteContract()
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
 
-  // Read NFT balance - Real contract calls
-  const { data: nftBalance } = useReadContract({
+  // Read companion NFT data
+  const { data: nftData, refetch: refetchNFT } = useReadContract({
     address: CONTRACT_ADDRESSES.NFT,
     abi: WOO_RELATION_NFT_ABI,
-    functionName: 'balanceOf',
-    args: user ? [user] : undefined,
-    query: { enabled: Boolean(user && chainId === 10143) },
-  });
+    functionName: 'tokenOfOwnerByIndex',
+    args: [address, 0],
+    query: { enabled: !!address }
+  })
 
-  // Read user token ID
-  const { data: tokenId } = useReadContract({
-    address: CONTRACT_ADDRESSES.NFT,
-    abi: WOO_RELATION_NFT_ABI,
-    functionName: 'getUserTokenId',
-    args: user ? [user] : undefined,
-    query: { enabled: Boolean(user && nftBalance && nftBalance > 0) },
-  });
-
-  // Read affection - Real data
-  const { data: affection } = useReadContract({
+  const { data: affectionData } = useReadContract({
     address: CONTRACT_ADDRESSES.NFT,
     abi: WOO_RELATION_NFT_ABI,
     functionName: 'affectionOf',
-    args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined, refetchInterval: 5000 },
-  });
+    args: [nftData],
+    query: { enabled: !!nftData }
+  })
 
-  // Read breakup time
-  const { data: breakupTime } = useReadContract({
-    address: CONTRACT_ADDRESSES.GUARD,
-    abi: WOO_GUARD_ABI,
-    functionName: 'breakupTime',
-    args: user ? [user] : undefined,
-    query: { enabled: Boolean(user && affection === 0), refetchInterval: 1000 },
-  });
-
-  // Read token balances for real amounts
-  const { data: monBalance } = useReadContract({
-    address: TOKEN_ADDRESSES.MON,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: user ? [user] : undefined,
-    query: { enabled: Boolean(user), refetchInterval: 10000 },
-  });
-
-  // Auto-switch to Monad chain
   useEffect(() => {
-    if (isConnected && chainId !== 10143) {
-      switchChain({ chainId: 10143 });
+    if (nftData && affectionData) {
+      const affectionNum = Number(affectionData)
+      setCompanion({
+        id: Number(nftData),
+        name: generateCompanionName(),
+        type: getCompanionType(affectionNum),
+        affection: affectionNum,
+        level: Math.floor(affectionNum / 1000) + 1,
+        avatar: getCompanionAvatar(affectionNum),
+        personality: getPersonality(affectionNum)
+      })
     }
-  }, [isConnected, chainId, switchChain]);
+  }, [nftData, affectionData])
 
-  // Handle breakup timer
-  useEffect(() => {
-    if (affection === 0 && breakupTime) {
-      const lockoutEnd = Number(breakupTime) + 30 * 60;
-      const now = Math.floor(Date.now() / 1000);
+  const generateCompanionName = () => {
+    const names = ['Luna', 'Pixel', 'Nova', 'Echo', 'Zara', 'Kira', 'Axel', 'Sage']
+    return names[Math.floor(Math.random() * names.length)]
+  }
 
-      if (lockoutEnd > now) {
-        setBreakupTimer(lockoutEnd - now);
-        const timer = setInterval(() => {
-          const timeLeft = lockoutEnd - Math.floor(Date.now() / 1000);
-          setBreakupTimer(Math.max(0, timeLeft));
-          if (timeLeft <= 0) clearInterval(timer);
-        }, 1000);
-        return () => clearInterval(timer);
-      }
+  const getCompanionType = (affection: number): Companion['type'] => {
+    if (affection < 2500) return 'mysterious'
+    if (affection < 5000) return 'cute'
+    if (affection < 7500) return 'energetic'
+    return 'wise'
+  }
+
+  const getCompanionAvatar = (affection: number) => {
+    const avatars = {
+      mysterious: '🌙',
+      cute: '💖',
+      energetic: '⚡',
+      wise: '🔮'
     }
-  }, [affection, breakupTime]);
+    return avatars[getCompanionType(affection)]
+  }
 
-  // Load leaderboard from indexer GraphQL
-  useEffect(() => {
-    const loadTopUsers = async () => {
-      try {
-        const response = await fetch('http://localhost:8080/graphql', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `query TopUsers { topUsers(limit: 5) { address totalVolume swapCount currentAffection totalRebates } }`
-          }),
-        });
-        const data = await response.json();
-        if (data.data?.topUsers) setTopUsers(data.data.topUsers);
-      } catch (error) {
-        console.log('Leaderboard temporarily unavailable');
-      }
-    };
-    loadTopUsers();
-  }, []);
+  const getPersonality = (affection: number) => {
+    if (affection < 1000) return "Still getting to know you..."
+    if (affection < 2500) return "Warming up to your presence"
+    if (affection < 5000) return "Enjoys your company!"
+    if (affection < 7500) return "Deeply cares about you"
+    return "Completely devoted to you"
+  }
 
-  const mintNFT = async () => {
-    if (!user) return;
+  const mintCompanion = async () => {
     try {
       await writeContract({
         address: CONTRACT_ADDRESSES.NFT,
         abi: WOO_RELATION_NFT_ABI,
         functionName: 'mint',
-        args: [user],
-        chainId: 10143n,
-      });
-      toast.success('NFT minted! Welcome to WooSwap! 💖');
+        args: [address]
+      })
+      toast.success('Minting your AI companion...')
     } catch (error) {
-      console.error('Mint error:', error);
-      toast.error('Failed to mint NFT');
+      toast.error('Failed to mint companion')
     }
-  };
+  }
 
-  const fetchQuest = async () => {
-    if (!user || affection === undefined) return;
-    setIsLoadingQuest(true);
+  const generateQuest = async () => {
+    setIsGeneratingQuest(true)
     try {
-      const response = await fetch('/api/quest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user,
-          lastAffection: affection,
-          lastSwapTime: Math.floor(Date.now() / 1000) - 3600,
-          userInput: userInput.trim() || undefined,
-        }),
-      });
-      const questData = await response.json();
-      setQuest(questData);
-      setUserInput('');
-    } catch (error) {
-      console.error('Quest fetch error:', error);
-      toast.error('Failed to get quest');
-    } finally {
-      setIsLoadingQuest(false);
-    }
-  };
+      // Simulate AI quest generation
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
-  const executeSwap = async () => {
-    if (!user || !quest) return;
-    try {
-      const amountIn = parseEther(swapAmount);
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
+      const questTypes: Quest['type'][] = ['educational', 'social', 'trading']
+      const randomType = questTypes[Math.floor(Math.random() * questTypes.length)]
 
-      await writeContract({
-        address: CONTRACT_ADDRESSES.ROUTER,
-        abi: WOO_ROUTER_ABI,
-        functionName: 'swapWithWoo',
-        args: [
-          [TOKEN_ADDRESSES.MON, TOKEN_ADDRESSES.USDT],
-          amountIn,
-          0n,
-          user,
-          deadline,
-          quest.questHash as `0x${string}`,
+      const questTemplates = {
+        educational: [
+          { title: "Learn about DeFi", description: "Research liquidity pools and explain how they work", reward: 250 },
+          { title: "Smart Contract Security", description: "Study common vulnerabilities in DeFi protocols", reward: 300 },
+          { title: "Tokenomics Analysis", description: "Analyze the token distribution of a major DeFi project", reward: 200 }
         ],
-        chainId: 10143n,
-      });
-
-      // Trigger rebate animation if high affection
-      if (Number(affection || 0) >= 8000) {
-        setShowRebateAnimation(true);
-        setTimeout(() => setShowRebateAnimation(false), 2000);
+        social: [
+          { title: "Community Engagement", description: "Share your WooSwap experience on social media", reward: 150 },
+          { title: "Help a Friend", description: "Refer a friend to start their DeFi journey", reward: 400 },
+          { title: "Discord Activity", description: "Participate in community discussions", reward: 100 }
+        ],
+        trading: [
+          { title: "Perfect Timing", description: "Execute a swap during peak trading hours", reward: 180 },
+          { title: "Small Steps", description: "Make 3 small test swaps to practice", reward: 120 },
+          { title: "Portfolio Balance", description: "Maintain a balanced token portfolio", reward: 250 }
+        ]
       }
 
-      toast.success('Swap executed with Woo! 💫');
+      const templates = questTemplates[randomType]
+      const quest = templates[Math.floor(Math.random() * templates.length)]
+
+      const newQuest: Quest = {
+        id: Date.now().toString(),
+        title: quest.title,
+        description: quest.description,
+        reward: quest.reward + (randomType === 'educational' ? 50 : 0), // Educational bonus
+        type: randomType,
+        completed: false,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+      }
+
+      setQuests(prev => [newQuest, ...prev.slice(0, 4)]) // Keep max 5 quests
+      toast.success('New quest generated!')
     } catch (error) {
-      console.error('Swap error:', error);
-      toast.error('Swap failed');
+      toast.error('Failed to generate quest')
+    } finally {
+      setIsGeneratingQuest(false)
     }
-  };
+  }
+
+  const completeQuest = (questId: string) => {
+    setQuests(prev => prev.map(q =>
+      q.id === questId ? { ...q, completed: true } : q
+    ))
+    const quest = quests.find(q => q.id === questId)
+    if (quest) {
+      toast.success(`Quest completed! +${quest.reward} affection`)
+      // In a real implementation, this would call the smart contract
+    }
+  }
 
   const sendGift = async () => {
+    if (!giftAmount || !companion) return
+
     try {
       await writeContract({
         address: CONTRACT_ADDRESSES.ROUTER,
         abi: WOO_ROUTER_ABI,
         functionName: 'payGift',
-        value: parseEther('1'),
-        chainId: 10143n,
-      });
-      toast.success('Gift sent! Affection boosted! 🎁');
+        value: parseEther(giftAmount)
+      })
+      toast.success(`Sending ${giftAmount} MON as a gift...`)
+      setGiftAmount('')
     } catch (error) {
-      console.error('Gift error:', error);
-      toast.error('Failed to send gift');
+      toast.error('Failed to send gift')
     }
-  };
+  }
 
-  const reconcile = async () => {
-    if (!user) return;
+  const performSwap = async () => {
+    if (!swapAmount || !companion) return
+
+    if (companion.affection < 2500) {
+      toast.error('Your companion needs more affection to unlock trading!')
+      return
+    }
+
     try {
-      await writeContract({
-        address: CONTRACT_ADDRESSES.GUARD,
-        abi: WOO_GUARD_ABI,
-        functionName: 'reconcile',
-        args: [user],
-        chainId: 10143n,
-      });
-      toast.success('Reconciliation successful! 💝');
+      // This would call the actual swap function
+      toast.success('Swap initiated...')
+      setSwapAmount('')
     } catch (error) {
-      console.error('Reconcile error:', error);
-      toast.error('Failed to reconcile');
+      toast.error('Swap failed')
     }
-  };
+  }
 
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const getRebatePercentage = (affection: number) => {
+    if (affection >= 7500) return 0.25
+    if (affection >= 5000) return 0.1
+    return 0
+  }
 
-  const getAffectionTier = (aff: number) => {
-    if (aff >= 8000) return { tier: 'gold', icon: '🎖️', color: 'badge-warning' };
-    if (aff >= 5000) return { tier: 'silver', icon: '🥈', color: 'badge-info' };
-    return { tier: 'bronze', icon: '🥉', color: 'badge-error' };
-  };
-
-  const currentAffection = Number(affection || 0);
-  const isBreakupActive = currentAffection === 0 && breakupTimer > 0;
-  const affectionTier = getAffectionTier(currentAffection);
+  const getAffectionColor = (affection: number) => {
+    if (affection >= 7500) return 'text-purple-400'
+    if (affection >= 5000) return 'text-pink-400'
+    if (affection >= 2500) return 'text-blue-400'
+    return 'text-gray-400'
+  }
 
   if (!isConnected) {
     return (
-      <div className="hero min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500">
+      <div className="hero-woo">
         <div className="hero-content text-center">
-          <div className="card w-96 bg-base-100 shadow-2xl">
-            <div className="card-body">
-              <h1 className="text-5xl font-bold">WooSwap 💖</h1>
-              <p className="text-lg">Connect your wallet to start your gamified trading journey!</p>
-              <p className="text-sm opacity-70">Supports MetaMask/Phantom/Backpack—auto-adds Monad chain</p>
-              <div className="card-actions justify-center">
-                <div className="btn btn-primary btn-lg">Connect Wallet</div>
-              </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md"
+          >
+            <h1 className="text-5xl font-bold text-glow">WooSwap 💖</h1>
+            <p className="py-6 text-xl">
+              The first gamified DEX where you build relationships with AI companions
+              to unlock trading rebates!
+            </p>
+            <div className="floating-element">
+              <div className="text-6xl mb-4">🎮</div>
             </div>
-          </div>
+            <p className="text-lg opacity-80">
+              Connect your wallet to start your journey
+            </p>
+          </motion.div>
         </div>
       </div>
-    );
-  }
-
-  if (chainId !== 10143) {
-    return (
-      <div className="hero min-h-screen bg-gradient-to-br from-orange-400 to-red-600">
-        <div className="hero-content text-center">
-          <div className="card w-96 bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title justify-center">⚡ Switch to Monad</h2>
-              <p>Experience blazing fast swaps on Monad Testnet</p>
-              <button
-                className="btn btn-primary"
-                onClick={() => switchChain({ chainId: 10143 })}
-              >
-                Switch Network
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!nftBalance || nftBalance === 0n) {
-    return (
-      <div className="hero min-h-screen bg-gradient-to-br from-cyan-400 to-blue-600">
-        <div className="hero-content text-center">
-          <div className="card w-96 bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title justify-center">🤖 Meet Your AI Companion</h2>
-              <p>Start your gamified trading journey with a free Relationship NFT!</p>
-              <div className="py-4">
-                <div className="text-6xl animate-pulse">💖</div>
-              </div>
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={mintNFT}
-                disabled={isWritePending}
-              >
-                {isWritePending ? 'Minting...' : 'Mint Free NFT'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4">
-      <div className="container mx-auto max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="container mx-auto px-4 py-8">
+      {/* Navigation */}
+      <div className="tabs tabs-boxed mb-8 bg-glass border-glass justify-center">
+        {[
+          { key: 'companion', label: '🤖 Companion', icon: '💖' },
+          { key: 'quest', label: '⚔️ Quests', icon: '🎯' },
+          { key: 'swap', label: '💱 Trading', icon: '🔄' },
+          { key: 'leaderboard', label: '🏆 Leaderboard', icon: '👑' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            className={`tab tab-lg ${activeTab === tab.key ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab(tab.key as any)}
+          >
+            <span className="mr-2">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          {/* Main Trading Card */}
-          <div className="lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="card bg-base-100 shadow-2xl"
-            >
-              <div className="card-body">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="card-title text-3xl">WooSwap 💖</h2>
-                  <div className={`badge ${affectionTier.color} badge-lg gap-2`}>
-                    {affectionTier.icon} {affectionTier.tier.charAt(0).toUpperCase() + affectionTier.tier.slice(1)} Tier
+      <AnimatePresence mode="wait">
+        {activeTab === 'companion' && (
+          <motion.div
+            key="companion"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-6"
+          >
+            {!companion ? (
+              <div className="text-center">
+                <div className="companion-card card-woo card-body max-w-md mx-auto">
+                  <h2 className="card-title justify-center text-2xl">Create Your AI Companion</h2>
+                  <div className="text-6xl my-4">🌟</div>
+                  <p>Mint your unique AI companion NFT to start building a relationship!</p>
+                  <div className="card-actions justify-center mt-4">
+                    <button
+                      className="btn-woo btn-lg"
+                      onClick={mintCompanion}
+                      disabled={isWriting || isConfirming}
+                    >
+                      {isWriting || isConfirming ? 'Minting...' : 'Mint Companion'}
+                    </button>
                   </div>
                 </div>
-
-                {/* Affection Progress Bar with Gradient */}
-                <div className="w-full mb-6">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="font-bold">Affection Level</span>
-                    <span className="font-mono">{currentAffection}/10000</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Companion Card */}
+                <div className="companion-card card-woo card-body">
+                  <div className="text-center">
+                    <div className="text-8xl mb-4 affection-glow">{companion.avatar}</div>
+                    <h2 className="text-3xl font-bold text-glow">{companion.name}</h2>
+                    <p className="text-lg opacity-80 capitalize">{companion.type} Companion</p>
                   </div>
-                  <progress
-                    className="progress progress-success w-full h-4"
-                    value={currentAffection}
-                    max={10000}
-                    style={{
-                      background: 'linear-gradient(to right, #ef4444, #f59e0b, #10b981)',
-                    }}
-                  />
-                  <div className="text-xs text-center mt-1 opacity-70">
-                    {currentAffection >= 8000 ? '🎉 Rebate Eligible!' : 'Complete quests to earn rebates'}
-                  </div>
-                </div>
 
-                {/* Breakup Status Alert */}
-                {isBreakupActive && (
-                  <motion.div
-                    initial={{ scale: 0.9 }}
-                    animate={{ scale: 1 }}
-                    className="alert alert-error mb-4"
-                  >
-                    <span>💔 Breakup cooldown: {formatTimer(breakupTimer)}</span>
-                  </motion.div>
-                )}
+                  <div className="stats stats-vertical shadow bg-glass border-glass mt-6">
+                    <div className="stat-woo">
+                      <div className="stat-title text-white/60">Affection Level</div>
+                      <div className={`stat-value ${getAffectionColor(companion.affection)}`}>
+                        {companion.affection.toLocaleString()}
+                      </div>
+                      <div className="stat-desc">
+                        <progress
+                          className="progress-woo w-full"
+                          value={companion.affection}
+                          max="10000"
+                        />
+                        {companion.affection}/10,000
+                      </div>
+                    </div>
 
-                {/* Balance Display */}
-                <div className="stats shadow mb-4">
-                  <div className="stat">
-                    <div className="stat-title">MON Balance</div>
-                    <div className="stat-value text-sm">
-                      {monBalance ? Number(monBalance) / 1e18 : 0} MON
+                    <div className="stat-woo">
+                      <div className="stat-title text-white/60">Relationship Level</div>
+                      <div className="stat-value text-accent">{companion.level}</div>
+                      <div className="stat-desc">{companion.personality}</div>
+                    </div>
+
+                    <div className="stat-woo">
+                      <div className="stat-title text-white/60">Trading Rebate</div>
+                      <div className="stat-value text-success">
+                        {getRebatePercentage(companion.affection)}%
+                      </div>
+                      <div className="stat-desc">
+                        {companion.affection < 2500 ? 'Unlock at 2500 affection' : 'Active!'}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Swap Form */}
-                <div className="form-control w-full mb-4">
-                  <label className="label">
-                    <span className="label-text font-bold">Swap Amount (MON → USDT)</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={swapAmount}
-                    onChange={(e) => setSwapAmount(e.target.value)}
-                    className="input input-bordered input-lg w-full"
-                    placeholder="1.0"
-                    disabled={isBreakupActive}
-                    step="0.1"
-                    min="0"
-                  />
-                </div>
+                {/* Gift Interface */}
+                <div className="card-woo card-body">
+                  <h3 className="card-title">💝 Send Gift</h3>
+                  <p>Send MON tokens to increase affection (100 points per MON)</p>
 
-                {/* Quest Section - Gamified Chat */}
-                {currentAffection < 5000 && !isBreakupActive && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 rounded-lg mb-4 text-white"
-                  >
-                    <h3 className="font-bold mb-2">💭 Chat with AI Companion</h3>
-
-                    {/* User Input */}
-                    <div className="form-control mb-2">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-white">Gift Amount (MON)</span>
+                    </label>
+                    <div className="input-group">
                       <input
-                        type="text"
-                        value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
-                        className="input input-ghost text-white placeholder-white/70"
-                        placeholder="Ask your AI companion anything..."
-                        onKeyPress={(e) => e.key === 'Enter' && fetchQuest()}
+                        type="number"
+                        placeholder="0.1"
+                        className="input-woo flex-1"
+                        value={giftAmount}
+                        onChange={(e) => setGiftAmount(e.target.value)}
+                      />
+                      <button
+                        className="btn-woo"
+                        onClick={sendGift}
+                        disabled={!giftAmount || isWriting || isConfirming}
+                      >
+                        Send Gift
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="alert bg-info/20 border-info/30 mt-4">
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-3">💡</span>
+                      <div>
+                        <h4 className="font-bold">Affection Tips</h4>
+                        <p className="text-sm opacity-80">
+                          Complete quests for bonus points! Educational quests give +50 extra.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'quest' && (
+          <motion.div
+            key="quest"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-6"
+          >
+            <div className="text-center">
+              <h2 className="text-4xl font-bold text-glow mb-4">⚔️ Daily Quests</h2>
+              <p className="text-xl opacity-80 mb-6">
+                Complete AI-generated challenges to boost your companion's affection!
+              </p>
+              <button
+                className="btn-woo btn-lg"
+                onClick={generateQuest}
+                disabled={isGeneratingQuest}
+              >
+                {isGeneratingQuest ? (
+                  <>
+                    <div className="loading loading-spinner"></div>
+                    Generating Quest...
+                  </>
+                ) : (
+                  '✨ Generate New Quest'
+                )}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {quests.map((quest, index) => (
+                <motion.div
+                  key={quest.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`quest-card card-woo card-body ${quest.completed ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="card-title text-lg">
+                        {quest.type === 'educational' && '📚'}
+                        {quest.type === 'social' && '👥'}
+                        {quest.type === 'trading' && '💰'}
+                        {quest.title}
+                      </h3>
+                      <p className="opacity-80 mt-2">{quest.description}</p>
+
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="badge-woo">
+                          +{quest.reward} Affection
+                        </div>
+                        <div className="text-sm opacity-60">
+                          Expires: {quest.expiresAt.toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card-actions justify-end mt-4">
+                    {quest.completed ? (
+                      <div className="badge badge-success">Completed ✓</div>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-outline btn-primary"
+                        onClick={() => completeQuest(quest.id)}
+                      >
+                        Complete Quest
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {quests.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🎯</div>
+                <p className="text-xl opacity-60">No active quests. Generate one to get started!</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'swap' && (
+          <motion.div
+            key="swap"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="max-w-lg mx-auto"
+          >
+            <div className="swap-interface card-woo card-body">
+              <h2 className="card-title text-3xl justify-center text-glow">
+                💱 Affection-Gated Trading
+              </h2>
+
+              {companion && companion.affection < 2500 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">🔒</div>
+                  <h3 className="text-xl font-bold mb-2">Trading Locked</h3>
+                  <p className="opacity-80">
+                    Build {2500 - companion.affection} more affection to unlock trading
+                  </p>
+                  <div className="mt-4">
+                    <progress
+                      className="progress-woo w-full"
+                      value={companion.affection}
+                      max="2500"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="badge-woo badge-lg mb-4">
+                      🎉 Trading Unlocked!
+                      {companion && getRebatePercentage(companion.affection) > 0 &&
+                        ` ${getRebatePercentage(companion.affection)}% Rebate`
+                      }
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text text-white">From: MON</span>
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.0"
+                        className="input-woo"
+                        value={swapAmount}
+                        onChange={(e) => setSwapAmount(e.target.value)}
                       />
                     </div>
 
-                    {quest ? (
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="chat chat-start"
-                      >
-                        <div className="chat-bubble chat-bubble-primary">
-                          <div className="text-sm">{quest.reply}</div>
-                          {quest.eduMode && (
-                            <div className="badge badge-accent badge-sm mt-1">📚 Edu Mode</div>
-                          )}
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <button
-                        className="btn btn-outline btn-sm w-full text-white border-white hover:bg-white hover:text-cyan-500"
-                        onClick={fetchQuest}
-                        disabled={isLoadingQuest}
-                      >
-                        {isLoadingQuest ? (
-                          <>
-                            <span className="loading loading-spinner loading-sm"></span>
-                            Getting Quest...
-                          </>
-                        ) : (
-                          <>🎯 Get Quest</>
-                        )}
+                    <div className="text-center">
+                      <button className="btn btn-circle btn-primary">
+                        ↓
                       </button>
-                    )}
-                  </motion.div>
-                )}
+                    </div>
 
-                {/* Action Buttons */}
-                <div className="card-actions justify-center gap-4">
-                  {isBreakupActive ? (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text text-white">To: USDT</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="0.0"
+                        className="input-woo"
+                        disabled
+                        value={swapAmount ? (parseFloat(swapAmount) * 0.1).toFixed(4) : ''}
+                      />
+                    </div>
+
                     <button
-                      className="btn btn-primary btn-lg"
-                      onClick={reconcile}
-                      disabled={isWritePending}
+                      className="btn-woo btn-block btn-lg"
+                      onClick={performSwap}
+                      disabled={!swapAmount || isWriting || isConfirming}
                     >
-                      {isWritePending ? 'Reconciling...' : '💝 Reconcile'}
+                      {isWriting || isConfirming ? 'Swapping...' : 'Swap Tokens'}
                     </button>
-                  ) : (
-                    <>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={sendGift}
-                        disabled={isWritePending}
-                      >
-                        {isWritePending ? 'Sending...' : '🎁 Send Gift (1 MON)'}
-                      </button>
 
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="btn btn-primary btn-lg"
-                        onClick={executeSwap}
-                        disabled={currentAffection < 5000 && !quest || isWritePending}
-                      >
-                        {isWritePending ? (
-                          <>
-                            <span className="loading loading-spinner"></span>
-                            Swapping...
-                          </>
-                        ) : (
-                          '💫 Swap with Woo'
-                        )}
-                      </motion.button>
-                    </>
-                  )}
-                </div>
-
-                {/* Rebate Info */}
-                <div className="text-center mt-4">
-                  <div className="text-xs opacity-60">
-                    {currentAffection >= 8000 ? (
-                      <span className="text-success font-bold">
-                        🎉 You earn 0.25% rebates on all swaps!
-                      </span>
-                    ) : (
-                      `Reach 8000 affection for 0.25% rebates! (${8000 - currentAffection} to go)`
+                    {companion && getRebatePercentage(companion.affection) > 0 && (
+                      <div className="alert bg-success/20 border-success/30">
+                        <div className="flex items-center">
+                          <span className="text-2xl mr-3">💰</span>
+                          <div>
+                            <h4 className="font-bold">Rebate Active!</h4>
+                            <p className="text-sm">
+                              You'll earn {getRebatePercentage(companion.affection)}% back from trading fees
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
-          {/* Sidebar - Leaderboard & Stats */}
-          <div className="space-y-6">
+        {activeTab === 'leaderboard' && (
+          <motion.div
+            key="leaderboard"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="text-center"
+          >
+            <h2 className="text-4xl font-bold text-glow mb-8">🏆 Affection Leaderboard</h2>
 
-            {/* Mini Leaderboard */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="card bg-base-100 shadow-xl"
-            >
-              <div className="card-body">
-                <h3 className="card-title text-lg">🏆 Top Wooers</h3>
-                <div className="space-y-2">
-                  {topUsers.length > 0 ? (
-                    topUsers.map((u, i) => (
-                      <div key={u.address} className="flex justify-between items-center p-2 bg-base-200 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
-                          <span className="font-mono text-xs">{u.address.slice(0, 6)}...</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold">{u.currentAffection}</div>
-                          <div className="text-xs opacity-60">{u.swapCount} swaps</div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-sm opacity-60">
-                      Loading leaderboard...
-                    </div>
-                  )}
+            <div className="card-woo card-body max-w-2xl mx-auto">
+              <div className="text-6xl mb-4">🚧</div>
+              <h3 className="text-xl font-bold mb-2">Coming Soon!</h3>
+              <p className="opacity-80">
+                The leaderboard is being developed. Soon you'll be able to see how your
+                companion relationship ranks against other users!
+              </p>
+
+              <div className="mt-6 space-y-2">
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded">
+                  <span>🥇 Most Affectionate</span>
+                  <span className="badge badge-warning">Coming Soon</span>
                 </div>
-              </div>
-            </motion.div>
-
-            {/* How It Works */}
-            <div className="card bg-base-100 shadow-xl">
-              <div className="card-body">
-                <h3 className="card-title text-lg">📖 How to Woo</h3>
-                <div className="steps steps-vertical">
-                  <div className="step step-primary">Complete quests</div>
-                  <div className="step step-primary">Build affection</div>
-                  <div className="step step-primary">Earn rebates</div>
-                  <div className="step">Avoid breakups!</div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded">
+                  <span>🎯 Quest Master</span>
+                  <span className="badge badge-info">Coming Soon</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded">
+                  <span>💰 Top Trader</span>
+                  <span className="badge badge-success">Coming Soon</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Rebate Animation Overlay */}
-        <AnimatePresence>
-          {showRebateAnimation && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
-            >
-              <motion.div
-                animate={{ rotate: 360, scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="text-8xl"
-              >
-                🎉
-              </motion.div>
-              <motion.div
-                initial={{ y: 50, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="absolute text-4xl font-bold text-yellow-400"
-              >
-                Rebate Earned!
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Custom CSS for confetti animation */}
-      <style jsx>{`
-        @keyframes confetti {
-          0% { transform: translateY(0) rotate(0deg); }
-          100% { transform: translateY(-100vh) rotate(720deg); }
-        }
-        .confetti {
-          animation: confetti 3s ease-out forwards;
-        }
-      `}</style>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  );
+  )
 }

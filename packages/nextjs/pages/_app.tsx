@@ -1,69 +1,61 @@
-import '../styles/globals.css';
-import type { AppProps } from 'next/app';
-import { WagmiProvider, createConfig, http } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConnectKitProvider, getDefaultConfig } from 'connectkit';
-import { Toaster } from 'react-hot-toast';
+import '../styles/globals.css'
+import type { AppProps } from 'next/app'
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ConnectKitProvider } from 'connectkit'
+import { config } from '../utils/wagmi'
+import { Toaster } from 'react-hot-toast'
 
-// Monad Testnet chain configuration (2025 verified)
-const monadChain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: {
-    name: 'MON',
-    symbol: 'MON',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: {
-      http: ['https://testnet-rpc.monad.xyz', 'https://rpc.testnet.monad.xyz'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Monad Explorer',
-      url: 'https://testnet.monadexplorer.com',
-    },
-  },
-} as const;
+const queryClient = new QueryClient()
 
-// Wagmi config with 2025 syntax
-const config = createConfig(
-  getDefaultConfig({
-    chains: [monadChain],
-    transports: {
-      [monadChain.id]: http(),
-    },
-    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
-    appName: 'WooSwap',
-    appDescription: 'Gamified DEX on Monad Testnet',
-    appUrl: 'https://wooswap.monad.xyz',
-    appIcon: '💖',
-  })
-);
-
-const queryClient = new QueryClient();
-
-function MyApp({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps }: AppProps) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider mode="light" theme="retro">
-          <Component {...pageProps} />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-            }}
-          />
+        <ConnectKitProvider
+          theme="midnight"
+          mode="dark"
+          customTheme={{
+            "--ck-font-family": "system-ui, sans-serif",
+            "--ck-border-radius": "16px",
+            "--ck-primary-button-border-radius": "16px",
+            "--ck-secondary-button-border-radius": "16px",
+            "--ck-primary-button-color": "#ffffff",
+            "--ck-primary-button-background": "linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)",
+            "--ck-primary-button-hover-background": "linear-gradient(135deg, #db2777 0%, #7c3aed 100%)",
+          }}
+        >
+          <div data-theme="wooswap">
+            <Component {...pageProps} />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                className: '',
+                duration: 4000,
+                style: {
+                  background: 'rgba(0, 0, 0, 0.8)',
+                  color: '#fff',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '12px',
+                },
+                success: {
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
+          </div>
         </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
-  );
+  )
 }
-
-export default MyApp;
