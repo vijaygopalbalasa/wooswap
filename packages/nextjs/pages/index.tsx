@@ -7,7 +7,17 @@ import { motion } from 'framer-motion';
 // Dynamic import to avoid hydration issues with wallet connection
 const WooSwapGameified = dynamic(
   () => import('../components/WooSwapGameified'),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-pulse">💖</div>
+          <p className="text-lg text-gray-600">Loading your heartfelt journey...</p>
+        </div>
+      </div>
+    )
+  }
 );
 
 const Home: NextPage = () => {
@@ -38,23 +48,21 @@ const Home: NextPage = () => {
 
       <div className="min-h-screen">
         {/* Header */}
-        <header className="navbar-woo sticky top-0 z-50">
-          <div className="container mx-auto">
-            <div className="navbar-start">
-              <motion.div
-                className="flex items-center space-x-3"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 400, damping: 10 }}
-              >
-                <div className="text-3xl floating-element">💖</div>
-                <div>
-                  <h1 className="text-2xl font-bold text-glow">WooSwap</h1>
-                  <div className="badge badge-accent badge-sm">Monad Testnet</div>
-                </div>
-              </motion.div>
-            </div>
+        <header className="navbar-heartfelt fixed top-0 left-0 right-0 z-50">
+          <div className="container mx-auto flex items-center justify-between px-6 py-4">
+            <motion.div
+              className="flex items-center space-x-3"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
+              <div className="text-3xl float-element">💖</div>
+              <div>
+                <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-heartfelt-coral to-pink-600">WooSwap</h1>
+                <div className="text-xs text-gray-600">Heartfelt DeFi Journey</div>
+              </div>
+            </motion.div>
 
-            <div className="navbar-end">
+            <div className="flex items-center space-x-4">
               <ConnectKitButton />
             </div>
           </div>

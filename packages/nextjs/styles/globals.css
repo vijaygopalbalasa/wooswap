@@ -1,187 +1,445 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom WooSwap styles */
+/* Heartfelt DeFi Journey Base Styles */
 @layer base {
+  * {
+    @apply border-pink-200;
+  }
+
   html {
-    font-family: system-ui, sans-serif;
+    font-family: 'Poppins', 'Inter', sans-serif;
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900;
-    @apply min-h-screen;
-    @apply text-white;
+    @apply bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 text-gray-800;
+    @apply min-h-screen overflow-x-hidden;
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255, 111, 97, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(168, 230, 207, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(255, 215, 0, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
   }
 }
 
+/* Heartfelt DeFi Journey Components */
 @layer components {
-  .btn-woo {
-    @apply btn btn-primary;
-    @apply bg-gradient-to-r from-pink-500 to-purple-600;
-    @apply hover:from-pink-600 hover:to-purple-700;
-    @apply border-none;
-    @apply shadow-lg shadow-pink-500/25;
-    @apply transition-all duration-300;
-  }
-
-  .btn-woo:hover {
-    @apply scale-105 shadow-xl shadow-pink-500/40;
-  }
-
-  .card-woo {
-    @apply card bg-base-100/10 backdrop-blur-md;
-    @apply border border-white/20;
-    @apply shadow-xl shadow-black/20;
-    @apply transition-all duration-300;
-  }
-
-  .card-woo:hover {
-    @apply transform scale-105;
-    @apply shadow-2xl shadow-pink-500/20;
-    @apply border-pink-500/30;
-  }
-
-  .input-woo {
-    @apply input input-bordered;
-    @apply bg-white/10 backdrop-blur-sm;
-    @apply border-white/30;
-    @apply placeholder-white/60;
-    @apply text-white;
-    @apply focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20;
-  }
-
-  .progress-woo {
-    @apply progress progress-primary;
-    @apply bg-white/20;
-  }
-
-  .badge-woo {
-    @apply badge badge-primary;
-    @apply bg-gradient-to-r from-pink-500 to-purple-600;
-    @apply border-none;
-    @apply text-white;
-  }
-
-  .stat-woo {
-    @apply stat;
-    @apply bg-white/5;
-    @apply backdrop-blur-sm;
-    @apply border border-white/10;
-    @apply rounded-lg;
-  }
-
-  .navbar-woo {
-    @apply navbar;
-    @apply bg-black/20;
-    @apply backdrop-blur-md;
-    @apply border-b border-white/10;
-  }
-
-  .hero-woo {
-    @apply hero min-h-screen;
-    @apply bg-cyber-grid;
-  }
-
-  .companion-card {
-    @apply relative overflow-hidden;
-    @apply bg-gradient-to-br from-purple-500/20 to-pink-500/20;
+  /* Button Styles */
+  .btn-heartfelt {
+    @apply relative px-8 py-3 font-medium;
+    @apply bg-gradient-to-r from-heartfelt-coral to-pink-500 text-white;
     @apply border-2 border-transparent;
-    @apply transition-all duration-500;
-  }
-
-  .companion-card:hover {
-    @apply border-pink-400;
-    @apply shadow-2xl shadow-pink-500/30;
-    animation: glow 2s ease-in-out infinite alternate;
-  }
-
-  .affection-glow {
-    animation: heartbeat 1.5s ease-in-out infinite;
-  }
-
-  .quest-card {
-    @apply bg-gradient-to-r from-blue-500/10 to-cyan-500/10;
-    @apply border border-blue-400/30;
+    @apply rounded-xl overflow-hidden;
     @apply transition-all duration-300;
+    @apply shadow-lg shadow-pink-200/50;
+    @apply text-sm;
+    position: relative;
   }
 
-  .quest-card:hover {
-    @apply border-blue-400;
-    @apply shadow-lg shadow-blue-500/20;
+  .btn-heartfelt::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
   }
 
-  .swap-interface {
-    @apply bg-gradient-to-br from-green-500/10 to-emerald-500/10;
-    @apply border border-green-400/30;
-    @apply rounded-2xl;
+  .btn-heartfelt:hover::before {
+    left: 100%;
   }
 
-  .floating-element {
-    animation: float 3s ease-in-out infinite;
+  .btn-heartfelt:hover {
+    @apply transform -translate-y-1;
+    @apply shadow-xl shadow-pink-300/60;
+    @apply bg-gradient-to-r from-pink-600 to-rose-600;
   }
 
-  .pulse-glow {
-    animation: glow 2s ease-in-out infinite alternate;
+  .btn-heartfelt:active {
+    @apply transform translate-y-0;
+  }
+
+  .btn-heartfelt-mint {
+    @apply btn-heartfelt;
+    @apply bg-gradient-to-r from-heartfelt-mint to-green-400 text-gray-800;
+    @apply shadow-lg shadow-mint-200/50;
+  }
+
+  .btn-heartfelt-mint:hover {
+    @apply bg-gradient-to-r from-mint-600 to-green-600 text-white;
+    @apply shadow-xl shadow-mint-300/60;
+  }
+
+  .btn-heartfelt-gold {
+    @apply btn-heartfelt;
+    @apply bg-gradient-to-r from-heartfelt-gold to-yellow-400 text-gray-800;
+    @apply shadow-lg shadow-yellow-200/50;
+  }
+
+  .btn-heartfelt-gold:hover {
+    @apply bg-gradient-to-r from-yellow-600 to-yellow-500 text-white;
+    @apply shadow-xl shadow-yellow-300/60;
+  }
+
+  .btn-heartfelt-secondary {
+    @apply px-8 py-3 font-medium;
+    @apply bg-transparent border-2 border-heartfelt-coral text-heartfelt-coral;
+    @apply rounded-xl;
+    @apply transition-all duration-300;
+    @apply hover:bg-heartfelt-coral hover:text-white;
+    @apply hover:shadow-lg hover:shadow-pink-200/50;
+  }
+
+  /* Card Styles */
+  .card-heartfelt {
+    @apply relative overflow-hidden;
+    @apply bg-white/60 backdrop-blur-sm;
+    @apply border border-pink-200;
+    @apply rounded-3xl p-8;
+    @apply shadow-xl shadow-pink-100/50;
+    @apply transition-all duration-300;
+    position: relative;
+  }
+
+  .card-heartfelt::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 111, 97, 0.5), transparent);
+  }
+
+  .card-heartfelt:hover {
+    @apply transform -translate-y-2;
+    @apply shadow-2xl shadow-pink-200/60;
+    @apply border-heartfelt-coral/30;
+    @apply bg-white/80;
+  }
+
+  /* Input Styles */
+  .input-heartfelt {
+    @apply bg-white/70 backdrop-blur-sm;
+    @apply border-2 border-pink-200;
+    @apply rounded-xl px-4 py-3;
+    @apply text-gray-800 placeholder-gray-400;
+    @apply font-medium;
+    @apply transition-all duration-300;
+    @apply focus:outline-none focus:border-heartfelt-coral;
+    @apply focus:ring-2 focus:ring-pink-200/50;
+  }
+
+  .input-heartfelt:focus {
+    @apply shadow-lg shadow-pink-200/30;
+  }
+
+  /* Companion Card Styles */
+  .companion-card-heartfelt {
+    @apply card-heartfelt;
+    @apply animate-fade-in-up;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 228, 225, 0.4) 100%);
+    border: 1px solid rgba(255, 111, 97, 0.2);
+    backdrop-filter: blur(20px);
+  }
+
+  .companion-card-heartfelt::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255, 111, 97, 0.3), rgba(168, 230, 207, 0.3), rgba(255, 215, 0, 0.3));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .companion-card-heartfelt:hover::after {
+    opacity: 1;
+  }
+
+  .companion-card-heartfelt:hover {
+    @apply transform scale-102;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 228, 225, 0.6) 100%);
+  }
+
+  /* Quest Card Styles */
+  .quest-card-heartfelt {
+    @apply card-heartfelt;
+    @apply animate-slide-in-left;
+    background: linear-gradient(135deg, rgba(168, 230, 207, 0.2) 0%, rgba(255, 255, 255, 0.8) 100%);
+    border: 1px solid rgba(168, 230, 207, 0.3);
+  }
+
+  .quest-card-heartfelt:hover {
+    @apply border-heartfelt-mint/50;
+    background: linear-gradient(135deg, rgba(168, 230, 207, 0.3) 0%, rgba(255, 255, 255, 0.9) 100%);
+  }
+
+  /* Swap Interface Styles */
+  .swap-interface-heartfelt {
+    @apply card-heartfelt;
+    @apply animate-slide-in-bottom;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 255, 255, 0.8) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+  }
+
+  /* Navigation Styles */
+  .navbar-heartfelt {
+    @apply fixed top-0 left-0 right-0 z-50;
+    @apply bg-white/80 backdrop-blur-xl;
+    @apply border-b border-pink-200/50;
+    @apply px-6 py-4;
+    @apply shadow-lg shadow-pink-100/50;
+  }
+
+  /* Progress Bar Styles */
+  .progress-heartfelt {
+    @apply h-3 bg-pink-100 rounded-full overflow-hidden;
+    @apply shadow-inner;
+    position: relative;
+  }
+
+  .progress-heartfelt-fill {
+    @apply h-full bg-gradient-to-r from-heartfelt-coral to-pink-500;
+    @apply transition-all duration-500;
+    background: linear-gradient(90deg, #FF6F61, #F8BBD9, #FF6F61);
+    background-size: 200% 100%;
+    animation: progress-shine 2s ease-in-out infinite;
+  }
+
+  /* Badge Styles */
+  .badge-heartfelt {
+    @apply inline-flex items-center px-3 py-1;
+    @apply bg-gradient-to-r from-heartfelt-coral to-pink-500 text-white;
+    @apply rounded-full text-xs font-medium;
+    @apply shadow-md shadow-pink-200/50;
+  }
+
+  .badge-heartfelt-mint {
+    @apply badge-heartfelt;
+    @apply bg-gradient-to-r from-heartfelt-mint to-green-400 text-gray-800;
+    @apply shadow-md shadow-mint-200/50;
+  }
+
+  .badge-heartfelt-gold {
+    @apply badge-heartfelt;
+    @apply bg-gradient-to-r from-heartfelt-gold to-yellow-400 text-gray-800;
+    @apply shadow-md shadow-yellow-200/50;
+  }
+
+  /* Text Effects */
+  .text-heartfelt-gradient {
+    background: linear-gradient(135deg, #FF6F61, #A8E6CF, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-heartfelt-shimmer {
+    background: linear-gradient(45deg, #FF6F61, #F8BBD9, #A8E6CF, #FFD700);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  /* Floating Animations */
+  .float-element {
+    animation: float-gentle 6s ease-in-out infinite;
+  }
+
+  /* Glass Effects */
+  .glass-effect-heartfelt {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 111, 97, 0.2);
+  }
+
+  .glass-card-heartfelt {
+    @apply glass-effect-heartfelt rounded-2xl;
+    box-shadow:
+      0 8px 32px rgba(255, 111, 97, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  /* Chat Bubble Styles */
+  .chat-bubble-user {
+    @apply bg-gradient-to-r from-heartfelt-coral to-pink-500 text-white;
+    @apply rounded-2xl px-4 py-2 max-w-xs;
+    @apply shadow-md shadow-pink-200/50;
+  }
+
+  .chat-bubble-companion {
+    @apply bg-white text-gray-800 border border-pink-200;
+    @apply rounded-2xl px-4 py-2 max-w-xs;
+    @apply shadow-md shadow-pink-100/50;
   }
 }
 
+/* Custom Utilities */
 @layer utilities {
-  .text-glow {
-    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  .bg-heartfelt-gradient {
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255, 111, 97, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(168, 230, 207, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 50%);
   }
 
-  .bg-glass {
-    @apply bg-white/10 backdrop-blur-md;
+  .text-heartfelt-coral {
+    color: #FF6F61;
   }
 
-  .border-glass {
-    @apply border border-white/20;
+  .text-heartfelt-mint {
+    color: #A8E6CF;
+  }
+
+  .text-heartfelt-gold {
+    color: #FFD700;
   }
 }
 
-/* Custom scrollbar */
+/* Modern Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-black/20;
+  background: rgba(255, 228, 225, 0.3);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-pink-500/50 rounded-full;
+  background: linear-gradient(135deg, #FF6F61, #F8BBD9);
+  border-radius: 10px;
+  border: 2px solid rgba(255, 228, 225, 0.3);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-pink-500/70;
+  background: linear-gradient(135deg, #FF6F61, #A8E6CF);
 }
 
-/* Animations */
-@keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+/* Custom Animations */
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-@keyframes glow {
-  0% { box-shadow: 0 0 5px #ec4899, 0 0 10px #ec4899, 0 0 15px #ec4899; }
-  100% { box-shadow: 0 0 10px #ec4899, 0 0 20px #ec4899, 0 0 30px #ec4899; }
+@keyframes progress-shine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(0.5deg); }
+  66% { transform: translateY(-4px) rotate(-0.5deg); }
 }
 
-/* Loading animations */
-.loading-dots {
-  animation: loading-dots 1.4s infinite ease-in-out both;
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.loading-dots:nth-child(1) { animation-delay: -0.32s; }
-.loading-dots:nth-child(2) { animation-delay: -0.16s; }
+@keyframes slide-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
-@keyframes loading-dots {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+@keyframes slide-in-bottom {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Confetti Animation */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Loading States */
+.loading-heartfelt {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-heartfelt::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 111, 97, 0.3), transparent);
+  animation: loading-sweep 1.5s infinite;
+}
+
+@keyframes loading-sweep {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .card-heartfelt {
+    @apply p-6 rounded-2xl;
+  }
+
+  .btn-heartfelt {
+    @apply px-6 py-2 text-sm;
+  }
+
+  .companion-card-heartfelt {
+    @apply p-6;
+  }
 }
