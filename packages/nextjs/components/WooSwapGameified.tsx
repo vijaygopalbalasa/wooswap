@@ -309,7 +309,7 @@ export default function WooSwapGameified() {
     }
   }
 
-  const sendChatMessage = () => {
+  const sendChatMessage = async () => {
     if (!newMessage.trim()) return
 
     const userMessage: ChatMessage = {
@@ -318,23 +318,44 @@ export default function WooSwapGameified() {
       timestamp: new Date()
     }
 
-    // Generate companion response
-    const responses = [
-      "That's so sweet of you to say! 💕",
-      "I feel the same way! 🌸",
-      "You always know what to say! ✨",
-      "Our connection is growing stronger! 💖",
-      "Thank you for sharing that with me! 😊"
-    ]
-
-    const companionMessage: ChatMessage = {
-      text: responses[Math.floor(Math.random() * responses.length)],
-      isUser: false,
-      timestamp: new Date()
-    }
-
-    setChatMessages(prev => [...prev.slice(-9), userMessage, companionMessage])
+    setChatMessages(prev => [...prev.slice(-9), userMessage])
+    const currentMessage = newMessage
     setNewMessage('')
+
+    // Get real response from companion AI
+    try {
+      const response = await fetch('/api/quest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: address || '0x0',
+          userInput: currentMessage,
+          lastAffection: currentCompanion?.affection || 0,
+          lastSwapTime: Math.floor(Date.now() / 1000)
+        })
+      })
+
+      const questData = await response.json()
+
+      const companionMessage: ChatMessage = {
+        text: questData.reply || "I'm listening... tell me more! 💕",
+        isUser: false,
+        timestamp: new Date()
+      }
+
+      setChatMessages(prev => [...prev.slice(-9), ...prev.slice(-1), companionMessage])
+    } catch (error) {
+      console.error('Failed to get companion response:', error)
+
+      // Fallback response if API fails
+      const companionMessage: ChatMessage = {
+        text: "I'm having trouble finding the right words... but I'm here with you! 💖",
+        isUser: false,
+        timestamp: new Date()
+      }
+
+      setChatMessages(prev => [...prev.slice(-9), ...prev.slice(-1), companionMessage])
+    }
   }
 
   const generateQuest = async () => {

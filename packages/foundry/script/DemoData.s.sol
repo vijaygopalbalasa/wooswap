@@ -78,7 +78,7 @@ contract DemoData is Script {
             guard.setQuestValidity(questHash1, block.timestamp + 600);
 
             // First swap (should increase affection)
-            simulateSwap(router, ALICE, 1e18, questHash1);
+            executeRealSwap(router, ALICE, 1e18, questHash1);
 
             // Send gift to boost affection
             vm.deal(ALICE, 5 ether);
@@ -88,7 +88,7 @@ contract DemoData is Script {
             // Second swap (should trigger rebate due to high affection)
             bytes32 questHash2 = keccak256("alice-quest-2");
             guard.setQuestValidity(questHash2, block.timestamp + 600);
-            simulateSwap(router, ALICE, 2e18, questHash2);
+            executeRealSwap(router, ALICE, 2e18, questHash2);
 
             uint256 gasUsed = gasStart - gasleft();
             uint16 aliceAffection = nft.affectionOf(aliceTokenId);
@@ -125,7 +125,7 @@ contract DemoData is Script {
             guard.setQuestValidity(eduQuestHash, block.timestamp + 600);
 
             // Educational swap with bonus
-            simulateSwap(router, BOB, 0.5e18, eduQuestHash);
+            executeRealSwap(router, BOB, 0.5e18, eduQuestHash);
 
             // Gift for loyalty
             vm.deal(BOB, 2 ether);
@@ -163,11 +163,11 @@ contract DemoData is Script {
             console.log("Minted NFT", charlieTokenId, "for Charlie");
 
             // Rapid swapping to trigger penalties and breakup
-            simulateSwap(router, CHARLIE, 0.1e18, bytes32(0));
+            executeRealSwap(router, CHARLIE, 0.1e18, bytes32(0));
 
             // Wait 30 seconds to avoid rapid swap penalty, then swap again
             vm.warp(block.timestamp + 30);
-            simulateSwap(router, CHARLIE, 0.1e18, bytes32(0));
+            executeRealSwap(router, CHARLIE, 0.1e18, bytes32(0));
 
             // Drastically reduce affection to trigger breakup
             guard.updateAffection(CHARLIE, -6000, bytes32(0), false, false);
@@ -233,27 +233,38 @@ contract DemoData is Script {
         console.log("Connect MetaMask to Monad testnet and visit your frontend!");
     }
 
-    function simulateSwap(WooRouter router, address user, uint256 amountIn, bytes32 questHash) internal {
+    function executeRealSwap(WooRouter router, address user, uint256 amountIn, bytes32 questHash) internal {
         address[] memory path = new address[](2);
         path[0] = MON_TOKEN;
         path[1] = USDT_TOKEN;
 
-        // Mock token approval and balance (in real scenario, user needs tokens)
-        vm.deal(user, user.balance + 1 ether); // Add MON for gas
+        // Ensure user has gas for transactions
+        vm.deal(user, user.balance + 1 ether);
 
-        // Note: In real demo, user would need actual MON/USDT tokens
-        // This simulates the swap logic without actual token transfers
+        // Give user actual MON tokens for the swap
+        vm.prank(address(this));
+        IERC20Demo(MON_TOKEN).transfer(user, amountIn);
+
+        vm.prank(user);
+        IERC20Demo(MON_TOKEN).approve(address(router), amountIn);
+
+        vm.prank(user);
         try router.swapWithWoo(
             path,
             amountIn,
-            0, // minOut
+            0, // minOut - accepts any output amount
             user,
             block.timestamp + 300,
             questHash
         ) {
-            console.log("Swap successful for", user, "amount:", amountIn);
+            console.log("Real swap executed for", user, "amount:", amountIn);
         } catch Error(string memory reason) {
             console.log("Swap failed for", user, "reason:", reason);
+            // Still update affection for demo purposes if quest was valid
+            if (questHash != bytes32(0)) {
+                WooSwapGuard guard = WooSwapGuard(guardAddr);
+                guard.updateAffection(user, 100, questHash, true, false);
+            }
         } catch {
             console.log("Swap failed for", user, "(unknown reason)");
         }
