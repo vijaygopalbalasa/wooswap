@@ -123,7 +123,7 @@ contract WooRouter is Ownable {
         }
     }
 
-    function payGift() external payable {
+    function payGift() public payable {
         if (msg.value == 0) revert("No gift sent");
 
         uint256 giftInMON = msg.value;

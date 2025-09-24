@@ -29,12 +29,12 @@ contract WooLP is ERC20, AccessControl {
         _grantRole(REBATER_ROLE, _router);
     }
 
-    function _beforeTokenTransfer(
+    function _update(
         address from,
         address to,
         uint256 amount
     ) internal override {
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, amount);
 
         // Collect 1% fee when users transfer tokens to router for swaps
         // This simulates fee collection from swap volume

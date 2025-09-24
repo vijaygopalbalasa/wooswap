@@ -59,7 +59,7 @@ contract WooSwapGuard is Ownable {
         return (false, "Low affection, complete quest");
     }
 
-    function updateAffection(address user, int16 delta, bytes32 questHash, bool isGift, bool hasEduFlag) external onlyOwner {
+    function updateAffection(address user, int16 delta, bytes32 questHash, bool isGift, bool hasEduFlag) external payable onlyOwner {
         uint256 tokenId = _getUserTokenId(user);
         if (tokenId == type(uint256).max) revert InvalidUser();
 
@@ -82,8 +82,9 @@ contract WooSwapGuard is Ownable {
 
         // Gift bonuses (capped at +1000)
         if (isGift) {
-            int16 giftBonus = int16((msg.value / 1e18) * 100); // 100 per MON
-            if (giftBonus > 1000) giftBonus = 1000;
+            uint256 giftValue = (msg.value / 1e18) * 100; // 100 per MON
+            if (giftValue > 1000) giftValue = 1000;
+            int16 giftBonus = int16(uint16(giftValue));
             finalDelta += giftBonus;
         }
 

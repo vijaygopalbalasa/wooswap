@@ -9,7 +9,7 @@ import "../src/WooRouter.sol";
 
 contract DeployWoo is Script {
     // Monad testnet UniswapV2Router02
-    address constant UNISWAP_V2_ROUTER = 0xfb8e1c3b833f9e67a71c859a132cf783b645e436;
+    address constant UNISWAP_V2_ROUTER = 0xfB8e1C3b833f9E67a71C859a132cf783b645e436;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -95,19 +95,19 @@ contract DeployWoo is Script {
         console.log("  --rpc-url $MONAD_RPC\n");
 
         console.log("forge verify-contract", address(guard), "src/WooSwapGuard.sol:WooSwapGuard");
-        console.log("  --constructor-args $(cast abi-encode 'constructor(address)' ", address(nft), ")");
+        console.log("  --constructor-args $(cast abi-encode 'constructor(address)' ADDRESS)");
         console.log("  --verifier sourcify");
         console.log("  --verifier-url https://sourcify-api-monad.blockvision.org");
         console.log("  --rpc-url $MONAD_RPC\n");
 
         console.log("forge verify-contract", address(lp), "src/WooLP.sol:WooLP");
-        console.log("  --constructor-args $(cast abi-encode 'constructor(address,address)' ", address(nft), " ", address(0), ")");
+        console.log("  --constructor-args $(cast abi-encode 'constructor(address,address)' NFT_ADDRESS ZERO_ADDRESS)");
         console.log("  --verifier sourcify");
         console.log("  --verifier-url https://sourcify-api-monad.blockvision.org");
         console.log("  --rpc-url $MONAD_RPC\n");
 
         console.log("forge verify-contract", address(router), "src/WooRouter.sol:WooRouter");
-        console.log("  --constructor-args $(cast abi-encode 'constructor(address,address,address)' ", UNISWAP_V2_ROUTER, " ", address(guard), " ", address(lp), ")");
+        console.log("  --constructor-args $(cast abi-encode 'constructor(address,address,address)' UNISWAP GUARD LP)");
         console.log("  --verifier sourcify");
         console.log("  --verifier-url https://sourcify-api-monad.blockvision.org");
         console.log("  --rpc-url $MONAD_RPC\n");
@@ -129,6 +129,6 @@ contract DeployWoo is Script {
         console.log("All contracts deployed successfully!");
         console.log("Total contracts: 4");
         console.log("UniswapV2Router02:", UNISWAP_V2_ROUTER);
-        console.log("Ready for WooSwap gamified trading! 🎮💖");
+        console.log("Ready for WooSwap gamified trading!");
     }
 }
