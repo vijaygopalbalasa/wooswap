@@ -84,7 +84,7 @@ contract DeployWoo is Script {
         );
 
         // Write to file
-        vm.writeFile("./deployments/monad-testnet.json", json);
+        vm.writeFile("/Users/vijaygopalb/Wooswap/woo-swap/deployments/monad-testnet.json", json);
         console.log("\nDeployment addresses saved to ./deployments/monad-testnet.json");
 
         // Verification commands
