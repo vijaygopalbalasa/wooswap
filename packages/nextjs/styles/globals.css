@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DaisyUI theme overrides for WooSwap gamification */
+:root {
+  --animation-btn: 0.25s;
+  --animation-input: 0.2s;
+  --btn-text-case: uppercase;
+  --btn-focus-scale: 0.95;
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+}
+
+/* Custom confetti animation for rebates */
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.confetti {
+  animation: confetti 3s ease-out forwards;
+}
+
+/* Custom gradient for affection progress bar */
+.progress-affection {
+  background: linear-gradient(to right, #ef4444, #f59e0b, #10b981);
+}
+
+/* Pulsing hearts animation for high affection */
+@keyframes pulse-heart {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.pulse-heart {
+  animation: pulse-heart 2s ease-in-out infinite;
+}
+
+/* Gamified card hover effects */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Custom button glow for CTA */
+.btn-glow {
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+  transition: box-shadow 0.3s ease;
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 30px rgba(102, 126, 234, 0.7);
+}
+
+/* Loading spinner customization */
+.loading-woo {
+  border-top-color: #667eea;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chat bubble animations */
+.chat-bubble-appear {
+  animation: bubble-appear 0.5s ease-out;
+}
+
+@keyframes bubble-appear {
+  0% {
+    transform: scale(0.3) translateY(20px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Affection tier badge styles */
+.badge-bronze {
+  background: linear-gradient(45deg, #CD7F32, #A0522D);
+  color: white;
+}
+
+.badge-silver {
+  background: linear-gradient(45deg, #C0C0C0, #808080);
+  color: white;
+}
+
+.badge-gold {
+  background: linear-gradient(45deg, #FFD700, #FFA500);
+  color: white;
+}
+
+/* Leaderboard table animations */
+.leaderboard-row {
+  transition: all 0.2s ease;
+}
+
+.leaderboard-row:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+  transform: scale(1.02);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .card {
+    margin: 0.5rem;
+  }
+
+  .hero-content {
+    padding: 1rem;
+  }
+}
+
+/* Dark mode support */
+[data-theme="dark"] {
+  .progress-affection {
+    background: linear-gradient(to right, #dc2626, #d97706, #059669);
+  }
+
+  .btn-glow {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+
+  .btn-glow:hover {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.7);
+  }
+}

@@ -1,0 +1,94 @@
+# Envio HyperIndex Configuration for WooSwap on Monad Testnet
+name: wooswap-indexer
+description: "WooSwap gamified DEX indexer for Monad testnet"
+
+networks:
+  - id: 10143
+    name: monad-testnet
+    rpc_config:
+      url: https://testnet-rpc.monad.xyz
+      fallback_urls:
+        - https://rpc.testnet.monad.xyz
+    start_block: 1000000  # Adjust based on deployment block
+    end_block: null  # Keep indexing indefinitely
+    confirmations_wait_time: 3  # Wait for 3 confirmations
+
+# Contract addresses - to be filled after deployment
+contracts:
+  - name: WooRelationNFT
+    handler: ./src/handler.ts
+    events:
+      - event: "AffectionUpdated(uint256 indexed tokenId, uint16 newAffection)"
+      - event: "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+    networks:
+      10143:
+        address: "0x0000000000000000000000000000000000000000"  # Fill after deployment
+        start_block: 1000000
+
+  - name: WooSwapGuard
+    handler: ./src/handler.ts
+    events:
+      - event: "BreakUp(address indexed user, string reason)"
+      - event: "Reconciled(address indexed user, uint16 newAffection)"
+    networks:
+      10143:
+        address: "0x0000000000000000000000000000000000000000"  # Fill after deployment
+        start_block: 1000000
+
+  - name: WooRouter
+    handler: ./src/handler.ts
+    events:
+      - event: "WooSwapExecuted(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 rebateAmount)"
+      - event: "GiftReceived(address indexed user, uint256 amount, uint16 newAffection)"
+    networks:
+      10143:
+        address: "0x0000000000000000000000000000000000000000"  # Fill after deployment
+        start_block: 1000000
+
+  - name: WooLP
+    handler: ./src/handler.ts
+    events:
+      - event: "RebatePaid(address indexed user, uint256 amount, uint16 affection)"
+      - event: "FeeCollected(address indexed from, uint256 amount)"
+    networks:
+      10143:
+        address: "0x0000000000000000000000000000000000000000"  # Fill after deployment
+        start_block: 1000000
+
+# Event processing configuration
+event_decoder: "viem"  # Use viem for ABI decoding
+
+# Database configuration
+database:
+  type: "postgresql"
+  connection_string: "postgresql://envio:envio@postgres:5432/envio_db"
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+
+# Performance tuning
+performance:
+  batch_size: 100
+  max_concurrent_requests: 10
+  retry_max_attempts: 3
+  retry_base_delay_ms: 1000
+
+# GraphQL API configuration
+graphql:
+  port: 8080
+  playground: true
+  introspection: true
+  max_query_depth: 10
+  max_query_complexity: 1000
+
+# Health check configuration
+health_check:
+  port: 8081
+  endpoint: "/health"
+
+# Metrics configuration (optional)
+metrics:
+  enabled: true
+  port: 9090

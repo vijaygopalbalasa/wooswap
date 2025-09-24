@@ -1,0 +1,26 @@
+[profile.default]
+src = "packages/foundry/src"
+out = "packages/foundry/out"
+libs = ["packages/foundry/lib"]
+solc_version = "0.8.25"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+[rpc_endpoints]
+monad_testnet = "https://testnet-rpc.monad.xyz"
+monad_fallback = "https://rpc.testnet.monad.xyz"
+
+[etherscan]
+monad = { key = "", url = "https://testnet.monadexplorer.com/api" }
+
+# Gas optimizations for <24kB contracts
+[profile.default.optimizer_details]
+constantOptimizer = true
+cse = true
+deduplicate = true
+inliner = true
+jumpdestRemover = true
+orderLiterals = true
+peephole = true
+simpleCounterForLoopOptimization = true

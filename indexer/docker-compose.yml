@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # Redis for storing indexed data and user statistics
+  redis:
+    image: redis:7-alpine
+    container_name: wooswap-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - wooswap-network
+
+  # RediSearch module for full-text search capabilities
+  redisearch:
+    image: redislabs/redisearch:2.8.4
+    container_name: wooswap-redisearch
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisearch_data:/data
+    networks:
+      - wooswap-network
+
+  # Envio HyperIndex for blockchain indexing
+  envio-indexer:
+    image: envio/hyperindex:latest
+    container_name: wooswap-indexer
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://envio:envio@postgres:5432/envio_db
+      - RPC_URL_MONAD=https://testnet-rpc.monad.xyz
+      - TWITTER_BEARER=${TWITTER_BEARER}
+      - LOG_LEVEL=info
+    volumes:
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+      - ./schema.graphql:/app/schema.graphql:ro
+    ports:
+      - "8080:8080"  # GraphQL endpoint
+      - "8081:8081"  # Health check endpoint
+    networks:
+      - wooswap-network
+    restart: unless-stopped
+
+  # PostgreSQL for Envio metadata storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: wooswap-postgres
+    environment:
+      POSTGRES_DB: envio_db
+      POSTGRES_USER: envio
+      POSTGRES_PASSWORD: envio
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - wooswap-network
+
+  # GraphQL playground for testing queries
+  graphql-playground:
+    image: graphql/graphql-playground-cli
+    container_name: wooswap-playground
+    ports:
+      - "4000:4000"
+    environment:
+      - GRAPHQL_ENDPOINT=http://envio-indexer:8080/graphql
+    depends_on:
+      - envio-indexer
+    networks:
+      - wooswap-network
+
+  # Optional: Redis Commander for Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: wooswap-redis-ui
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8082:8081"
+    networks:
+      - wooswap-network
+
+volumes:
+  redis_data:
+  redisearch_data:
+  postgres_data:
+
+networks:
+  wooswap-network:
+    driver: bridge
