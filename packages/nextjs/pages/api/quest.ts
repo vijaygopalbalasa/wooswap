@@ -13,6 +13,10 @@ interface QuestRequest {
   relationshipStreak?: number;
   isJealous?: boolean;
   lastGiftTime?: number;
+  conversationHistory?: Array<{
+    text: string;
+    isUser: boolean;
+  }>;
 }
 
 interface QuestResponse {
@@ -89,7 +93,8 @@ export default async function handler(
       currentMood = 'neutral',
       relationshipStreak = 0,
       isJealous = false,
-      lastGiftTime = 0
+      lastGiftTime = 0,
+      conversationHistory = []
     }: QuestRequest = req.body;
 
     if (!user || lastAffection === undefined) {
@@ -144,7 +149,8 @@ MOOD-BASED RESPONSE PATTERNS:
 AVAILABLE TOKENS & TRADING:
 - MON (Monad native), USDT, USDC, WBTC, WETH
 - Detect swap intentions: "swap", "trade", "exchange", "buy", "sell", "get some"
-- Extract: fromToken, toToken, amount from user input
+- CRITICAL: Extract and preserve exact amount from user input (e.g., "0.1", "5", "100")
+- Parse patterns like "swap 0.1 MON", "trade 5 USDT", "exchange 100 tokens"
 - Educational topics: slippage, gas fees, MEV, liquidity risks
 
 RELATIONSHIP DYNAMICS:
@@ -179,15 +185,27 @@ You must respond with valid JSON:
 {
   "reply": "Your emotional, contextual response as Luna",
   "code": -300 to +500 (affection change),
-  "questId": "uuid-v4",
+  "questId": "GENERATE_REAL_UUID",
   "eduMode": true/false,
   "swapIntent": {
     "fromToken": "MON/USDT/USDC/WBTC/WETH or empty",
     "toToken": "MON/USDT/USDC/WBTC/WETH or empty",
-    "amount": "extracted amount or empty",
+    "amount": "MUST extract exact number from user input (e.g., '0.1', '5', '100') or empty if no amount specified",
     "action": "ready/educate/clarify/rejected"
   }
 }
+
+CRITICAL EDUCATION ENFORCEMENT:
+- If affection < 5000: ALWAYS require education quest first (action: "educate")
+- If affection ≥ 5000 but user hasn't shown knowledge: Ask ONE educational question (action: "educate")
+- Only set action to "ready" when: affection ≥ 8000 OR user demonstrates understanding
+- NEVER approve swaps without proper education checks based on affection level
+
+CONVERSATION MEMORY CRITICAL RULES:
+- ALWAYS check conversation history for original swap amounts
+- When approving swaps (action: "ready"), MUST preserve the exact amount from user's initial request
+- If user originally said "swap 0.1 MON to USDT", final approval MUST include amount: "0.1"
+- DO NOT lose amounts during educational conversations - carry them through to approval
 
 CRITICAL FORMATTING RULES:
 1. ALWAYS respond with valid JSON only - no extra text
@@ -221,10 +239,16 @@ WHEN USER SHOWS KNOWLEDGE (affection ≥ 5000):
   "swapIntent": {
     "fromToken": "MON",
     "toToken": "USDT",
-    "amount": "1",
+    "amount": "0.1",
     "action": "ready"
   }
 }
+
+AMOUNT EXTRACTION EXAMPLES:
+- User: "swap 0.1 MON to USDT" → amount: "0.1"
+- User: "I want to trade 5 MON for USDC" → amount: "5"
+- User: "exchange 100 USDT to MON" → amount: "100"
+- User: "swap MON to USDT" → amount: ""
 
 REGULAR CHAT (no swap):
 {
@@ -244,8 +268,12 @@ REGULAR CHAT (no swap):
         isLateNight: new Date().getHours() >= 22 || new Date().getHours() <= 5
       };
 
+      const conversationContext = conversationHistory.length > 0
+        ? `Recent conversation:\n${conversationHistory.map(msg => `${msg.isUser ? 'User' : 'Luna'}: ${msg.text}`).join('\n')}\n\n`
+        : '';
+
       const userMessage = userInput
-        ? `Context: You're currently ${companionMood}, affection ${lastAffection}/10000, last talked ${hoursAgo}h ago. ${contextualInfo.isNewDay ? 'It\'s been over a day!' : ''} ${contextualInfo.isLateNight ? 'It\'s late at night.' : contextualInfo.isEvening ? 'It\'s evening.' : 'It\'s daytime.'}\n\nUser says: "${userInput}"\n\nRespond as Luna with genuine emotion matching your current mood. JSON format only.`
+        ? `Context: You're currently ${companionMood}, affection ${lastAffection}/10000, last talked ${hoursAgo}h ago. ${contextualInfo.isNewDay ? 'It\'s been over a day!' : ''} ${contextualInfo.isLateNight ? 'It\'s late at night.' : contextualInfo.isEvening ? 'It\'s evening.' : 'It\'s daytime.'}\n\n${conversationContext}Current user message: "${userInput}"\n\nIMPORTANT: Check the conversation history for any specific amounts the user mentioned earlier (like "0.1 MON", "5 USDT"). If approving a swap, MUST include the original amount from the conversation. Respond as Luna with genuine emotion matching your current mood. JSON format only.`
         : `Context: Generate a conversation starter. You're ${companionMood}, affection ${lastAffection}/10000, ${hoursAgo}h since last talk. ${contextualInfo.isNewDay ? 'Miss them!' : 'Want their attention.'} ${contextualInfo.isLateNight ? 'Late night vibes.' : contextualInfo.isEvening ? 'Evening mood.' : 'Daytime energy.'}\n\nStart a meaningful conversation as Luna. JSON format only.`;
 
       const completion = await openai.chat.completions.create({
@@ -286,8 +314,13 @@ REGULAR CHAT (no swap):
       }
 
       // Validate response
-      if (!questResponse.reply || typeof questResponse.code !== 'number' || !questResponse.questId) {
+      if (!questResponse.reply || typeof questResponse.code !== 'number') {
         throw new Error('Invalid AI response format');
+      }
+
+      // Fix questId if it's a placeholder
+      if (!questResponse.questId || questResponse.questId === 'uuid-v4' || questResponse.questId === 'uuid-here' || questResponse.questId === 'GENERATE_REAL_UUID') {
+        questResponse.questId = uuidv4();
       }
 
       // Validate swapIntent if present

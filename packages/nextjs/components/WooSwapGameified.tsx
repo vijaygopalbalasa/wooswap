@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
 import toast from 'react-hot-toast'
 import { CONTRACT_ADDRESSES, WOO_ROUTER_ABI, WOO_RELATION_NFT_ABI, WOO_SWAP_GUARD_ABI, ERC20_ABI, TOKEN_ADDRESSES } from '../utils/contracts'
@@ -38,57 +38,54 @@ export default function WooSwapGameified() {
   const [companionMood, setCompanionMood] = useState<'happy' | 'neutral' | 'sad' | 'jealous' | 'clingy' | 'flirty'>('neutral')
   const [lastCheckIn, setLastCheckIn] = useState<Date | null>(null)
   const [relationshipStreak, setRelationshipStreak] = useState(0)
+  const [pendingSwap, setPendingSwap] = useState<{
+    fromToken: string;
+    toToken: string;
+    amount: string;
+    questHash: string;
+  } | null>(null)
 
   const { writeContract, data: txHash, isPending: isWriting } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
   })
 
-  // Handle successful transaction confirmation
-  useEffect(() => {
-    if (txSuccess && txHash) {
-      console.log('🎉 Transaction confirmed successfully!')
-
-      // Show success toast with explorer link
-      const explorerUrl = `https://testnet.monadexplorer.com/tx/${txHash}`
-      toast.success((t) => (
-        <div>
-          <div className="font-bold">💖 Your companion has been created!</div>
-          <div className="mt-1">
-            <a
-              href={explorerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline text-sm"
-            >
-              🔍 View transaction
-            </a>
-          </div>
-        </div>
-      ), { duration: 5000 })
-
-      // Refetch NFT data to update the UI
-      setTimeout(() => {
-        window.location.reload() // Simple refresh to get updated contract state
-      }, 3000)
+  // Helper function to map token names to addresses
+  const getTokenAddress = (tokenName: string): `0x${string}` => {
+    const upperToken = tokenName.toUpperCase()
+    switch (upperToken) {
+      case 'MON': return TOKEN_ADDRESSES.MON
+      case 'USDT': return TOKEN_ADDRESSES.USDT
+      case 'USDC': return TOKEN_ADDRESSES.USDC
+      case 'WETH': return TOKEN_ADDRESSES.WETH
+      case 'WBTC': return TOKEN_ADDRESSES.WBTC
+      default: return TOKEN_ADDRESSES.MON // fallback to MON
     }
-  }, [txSuccess, txHash])
+  }
+
+  // Helper function to get token name from address
+  const getTokenName = (tokenAddress: string): string => {
+    const entries = Object.entries(TOKEN_ADDRESSES) as [string, `0x${string}`][]
+    const found = entries.find(([, address]) => address.toLowerCase() === tokenAddress.toLowerCase())
+    return found ? found[0] : 'MON'
+  }
+
 
   // Read companion NFT data
-  const { data: nftBalance } = useReadContract({
+  const { data: nftBalance, refetch: refetchNftBalance } = useReadContract({
     address: CONTRACT_ADDRESSES.NFT,
     abi: WOO_RELATION_NFT_ABI,
     functionName: 'balanceOf',
     args: [address],
-    query: { enabled: !!address }
+    query: { enabled: !!address && !isWriting && !isConfirming }
   })
 
-  const { data: nftData } = useReadContract({
+  const { data: nftData, refetch: refetchNftData } = useReadContract({
     address: CONTRACT_ADDRESSES.NFT,
     abi: WOO_RELATION_NFT_ABI,
     functionName: 'getUserTokenId',
     args: [address],
-    query: { enabled: !!address && nftBalance && Number(nftBalance) > 0 }
+    query: { enabled: !!address && nftBalance && Number(nftBalance) > 0 && !isWriting && !isConfirming }
   })
 
   const { data: affectionData, refetch: refetchAffection } = useReadContract({
@@ -96,7 +93,7 @@ export default function WooSwapGameified() {
     abi: WOO_RELATION_NFT_ABI,
     functionName: 'affectionOf',
     args: [nftData],
-    query: { enabled: !!nftData }
+    query: { enabled: !!nftData && !isWriting && !isConfirming }
   })
 
   // Check if swap is allowed
@@ -108,7 +105,13 @@ export default function WooSwapGameified() {
     query: { enabled: !!address && !!swapAmount }
   })
 
-  // Token balances
+  // Native balance (MON is native token on Monad)
+  const { data: nativeBalance } = useBalance({
+    address: address,
+    query: { enabled: !!address }
+  })
+
+  // Also check ERC20 balance for MON token contract
   const { data: monBalance } = useReadContract({
     address: TOKEN_ADDRESSES.MON,
     abi: ERC20_ABI,
@@ -133,8 +136,94 @@ export default function WooSwapGameified() {
     query: { enabled: !!address }
   })
 
-  // Update companion when data changes
+  // Handle successful transaction confirmation
   useEffect(() => {
+    if (txSuccess && txHash) {
+      console.log('🎉 Transaction confirmed successfully!')
+
+      const explorerUrl = `https://testnet.monadexplorer.com/tx/${txHash}`
+
+      // Check if this is a swap transaction (pendingSwap exists)
+      if (pendingSwap) {
+        // Handle swap success
+        const fromTokenName = getTokenName(pendingSwap.fromToken)
+        const toTokenName = getTokenName(pendingSwap.toToken)
+
+        toast.success((t) => (
+          <div>
+            <div className="font-bold">💖 Swap successful!</div>
+            <div className="text-sm">
+              {pendingSwap.amount} {fromTokenName} → {toTokenName}
+            </div>
+            <div className="mt-1">
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline text-sm"
+              >
+                🔍 View transaction
+              </a>
+            </div>
+          </div>
+        ), { duration: 5000 })
+
+        // Add detailed success message to chat
+        const successMessage: ChatMessage = {
+          text: companion?.affection >= 8000
+            ? `Perfect! Your ${pendingSwap.amount} ${fromTokenName} → ${toTokenName} swap succeeded and you got your 0.25% rebate too! Our love pays off 💕✨`
+            : `Great trade, honey! Your ${pendingSwap.amount} ${fromTokenName} → ${toTokenName} swap succeeded! Keep building our relationship for better rewards! 💖`,
+          isUser: false,
+          timestamp: new Date()
+        }
+        setChatMessages(prev => [...prev, successMessage])
+
+        // Clear pending swap
+        setPendingSwap(null)
+
+        setShowConfetti(true)
+        setTimeout(() => setShowConfetti(false), 3000)
+
+        // Refetch affection and balances
+        setTimeout(() => {
+          refetchAffection()
+          // The balance hooks should automatically refetch
+        }, 2000)
+      } else {
+        // Handle companion creation success
+        toast.success((t) => (
+          <div>
+            <div className="font-bold">💖 Your companion has been created!</div>
+            <div className="mt-1">
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline text-sm"
+              >
+                🔍 View transaction
+              </a>
+            </div>
+          </div>
+        ), { duration: 5000 })
+
+        // Refetch NFT data to update the UI after transaction confirmation
+        setTimeout(async () => {
+          await refetchNftBalance()
+          await refetchNftData()
+          await refetchAffection()
+        }, 2000)
+      }
+    }
+  }, [txSuccess, txHash, pendingSwap, companion?.affection, getTokenName, refetchNftBalance, refetchNftData, refetchAffection])
+
+  // Update companion when data changes - but only if we're not waiting for a transaction
+  useEffect(() => {
+    // Don't update companion data while a transaction is pending
+    if (isWriting || isConfirming) {
+      return
+    }
+
     if (nftData && affectionData) {
       const affectionNum = Number(affectionData)
       const currentMood = getLunaMood(affectionNum)
@@ -150,8 +239,11 @@ export default function WooSwapGameified() {
         personality: getPersonality(affectionNum),
         rarity: getCompanionRarity(affectionNum)
       })
+    } else if (!nftBalance || Number(nftBalance) === 0) {
+      // Clear companion if no NFT
+      setCompanion(null)
     }
-  }, [nftData, affectionData])
+  }, [nftData, affectionData, isWriting, isConfirming, nftBalance])
 
   // Daily check-in system
   const checkDailyCheckIn = () => {
@@ -566,19 +658,104 @@ export default function WooSwapGameified() {
 
 
   const executeConversationalSwap = async () => {
-    if (!pendingSwap || !address) return
+    console.log('🚀 executeConversationalSwap called')
+    console.log('pendingSwap:', pendingSwap)
+    console.log('address:', address)
+
+    if (!pendingSwap || !address) {
+      console.log('❌ Missing pendingSwap or address')
+      const errorMessage: ChatMessage = {
+        text: "Oops! Something went wrong with the swap setup. Let's try again, babe! 💕",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, errorMessage])
+      return
+    }
 
     try {
+      const fromTokenName = getTokenName(pendingSwap.fromToken)
+      const toTokenName = getTokenName(pendingSwap.toToken)
+
+      console.log('💱 Executing swap:', {
+        fromToken: pendingSwap.fromToken,
+        toToken: pendingSwap.toToken,
+        amount: pendingSwap.amount,
+        fromTokenName,
+        toTokenName,
+        questHash: pendingSwap.questHash
+      })
+
       // Show Luna is facilitating the swap
       const facilitatingMessage: ChatMessage = {
-        text: "✨ I'm facilitating your swap now, babe! Let me handle everything for you 💖",
+        text: `✨ I'm facilitating your ${pendingSwap.amount} ${fromTokenName} → ${toTokenName} swap now, babe! Let me handle everything for you 💖`,
         isUser: false,
         timestamp: new Date()
       }
       setChatMessages(prev => [...prev, facilitatingMessage])
 
+      // Show wallet confirmation message
+      const walletMessage: ChatMessage = {
+        text: "💝 Please check your wallet to confirm the transaction. I'll wait for you! 🥰",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setTimeout(() => setChatMessages(prev => [...prev, walletMessage]), 1000)
+
       const amountIn = parseEther(pendingSwap.amount)
       const deadline = Math.floor(Date.now() / 1000) + 300 // 5 minutes
+
+      console.log('📝 Calling writeContract with params:', {
+        router: CONTRACT_ADDRESSES.ROUTER,
+        path: [pendingSwap.fromToken, pendingSwap.toToken],
+        amountIn: amountIn.toString(),
+        minOut: '0',
+        to: address,
+        deadline,
+        questHash: pendingSwap.questHash
+      })
+
+      // Check if user has sufficient balance
+      const currentBalance = pendingSwap.fromToken === TOKEN_ADDRESSES.MON ? monBalance : fromTokenBalance
+
+      // For MON token, check both native balance and ERC20 balance
+      let actualBalance: bigint | undefined;
+
+      if (pendingSwap.fromToken === TOKEN_ADDRESSES.MON) {
+        // Try native balance first, then ERC20 balance
+        actualBalance = nativeBalance?.value || monBalance
+      } else {
+        // For other tokens, use the ERC20 balance
+        actualBalance = fromTokenBalance
+      }
+
+      console.log('💰 Balance debugging:', {
+        'pendingSwap.fromToken': pendingSwap.fromToken,
+        'TOKEN_ADDRESSES.MON': TOKEN_ADDRESSES.MON,
+        'is_MON_token': pendingSwap.fromToken === TOKEN_ADDRESSES.MON,
+        'nativeBalance': nativeBalance?.value ? formatEther(nativeBalance.value) : 'null',
+        'monBalance_ERC20': monBalance ? formatEther(monBalance as bigint) : 'null',
+        'fromTokenBalance': fromTokenBalance ? formatEther(fromTokenBalance as bigint) : 'null',
+        'actualBalance_used': actualBalance ? formatEther(actualBalance) : 'null',
+        'required': formatEther(amountIn)
+      })
+
+      if (!actualBalance || actualBalance < amountIn) {
+        throw new Error(`Insufficient ${getTokenName(pendingSwap.fromToken)} balance. You need ${formatEther(amountIn)} but only have ${actualBalance ? formatEther(actualBalance) : '0'}`)
+      }
+
+      // Check token allowance for the router
+      console.log('🔍 Checking token allowance for router...')
+
+      // For now, let's add a helpful error message about approvals
+      const needsApprovalMessage: ChatMessage = {
+        text: `⚠️ If the transaction fails, you may need to approve ${getTokenName(pendingSwap.fromToken)} spending first. This is a common requirement for DEX swaps!`,
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, needsApprovalMessage])
+
+      console.log('🚀 Calling writeContract...')
 
       await writeContract({
         address: CONTRACT_ADDRESSES.ROUTER,
@@ -594,38 +771,35 @@ export default function WooSwapGameified() {
         ]
       })
 
-      toast.success('💖 Swap executed through Luna!')
+      console.log('✅ writeContract call completed - transaction submitted to wallet')
+
+      // Transaction submitted! useEffect will handle success/failure
+      const submittedMessage: ChatMessage = {
+        text: `Transaction submitted! Waiting for confirmation... 💫`,
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, submittedMessage])
+
+    } catch (error: any) {
+      console.error('Swap error:', error)
 
       // Clear pending swap
       setPendingSwap(null)
 
-      // Add success message
-      const successMessage: ChatMessage = {
-        text: companion?.affection >= 8000
-          ? "Perfect! And you got your 0.25% rebate too! Our love pays off 💕✨"
-          : "Great trade, honey! Keep building our relationship for better rewards! 💖",
-        isUser: false,
-        timestamp: new Date()
-      }
-      setChatMessages(prev => [...prev, successMessage])
+      // Check if user rejected transaction
+      const isUserRejection = error?.message?.includes('rejected') || error?.message?.includes('denied')
 
-      setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 3000)
-
-      // Refetch affection
-      setTimeout(() => refetchAffection(), 2000)
-
-    } catch (error) {
-      toast.error('Swap failed - but I still love you! 💕')
+      toast.error(isUserRejection ? 'Transaction cancelled 💔' : 'Swap failed - but I still love you! 💕')
 
       const errorMessage: ChatMessage = {
-        text: "Oh no! Something went wrong with the swap... but don't worry babe, we can try again! 💕",
+        text: isUserRejection
+          ? "Aww, you cancelled the transaction 💔 That's okay babe, let me know when you're ready to trade again! 🥺"
+          : "Oh no! Something went wrong with the swap... but don't worry babe, we can try again! The blockchain can be tricky sometimes 💕",
         isUser: false,
         timestamp: new Date()
       }
       setChatMessages(prev => [...prev, errorMessage])
-
-      setPendingSwap(null)
     }
   }
 
@@ -647,6 +821,21 @@ export default function WooSwapGameified() {
 
   const sendChatMessage = async () => {
     if (!newMessage.trim()) return
+
+    // Check if user has a companion before allowing conversation
+    // Use same logic as display: companion exists OR nftBalance > 0
+    const hasCompanion = companion || (nftBalance && Number(nftBalance) > 0)
+
+    if (!hasCompanion) {
+      const noCompanionMessage: ChatMessage = {
+        text: "Hey there! 👋 I'd love to chat, but you need to create your AI companion first! Click the 'Create My Companion' button below to start our journey together! 💖",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, noCompanionMessage])
+      toast.error('Create your companion first! 💖')
+      return
+    }
 
     // Check for jealousy triggers
     const jealousyTrigger = checkForJealousyTriggers(newMessage)
@@ -680,12 +869,16 @@ export default function WooSwapGameified() {
         body: JSON.stringify({
           user: address || '0x0',
           userInput: currentMessage,
-          lastAffection: companion?.affection || 0,
+          lastAffection: companion?.affection || (affectionData ? Number(affectionData) : 5000), // Use actual affection or default
           lastSwapTime: Math.floor(Date.now() / 1000),
           currentMood: companionMood,
           relationshipStreak: relationshipStreak,
           isJealous: companionMood === 'jealous',
-          lastGiftTime: Math.floor(Date.now() / 1000) // TODO: track real gift times
+          lastGiftTime: Math.floor(Date.now() / 1000), // TODO: track real gift times
+          conversationHistory: chatMessages.slice(-6).map(msg => ({
+            text: msg.text,
+            isUser: msg.isUser
+          }))
         })
       })
 
@@ -703,32 +896,46 @@ export default function WooSwapGameified() {
       if (questData.swapIntent) {
         const { fromToken, toToken, amount, action } = questData.swapIntent
 
+        console.log('🎯 AI Swap Intent received:', { fromToken, toToken, amount, action })
+
         if (action === 'ready' && fromToken && toToken && amount) {
+          console.log('✅ AI approved swap! Setting up pendingSwap...')
+
           // Luna approved the swap - set up for execution
-          setPendingSwap({
-            fromToken: fromToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
-            toToken: toToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+          const swapSetup = {
+            fromToken: getTokenAddress(fromToken),
+            toToken: getTokenAddress(toToken),
             amount: amount,
             questHash: questData.questHash
-          })
+          }
+
+          console.log('📋 Pending swap setup:', swapSetup)
+          setPendingSwap(swapSetup)
 
           // Auto-execute swap after 2 seconds to show Luna facilitating it
+          console.log('⏰ Setting 2-second timer for swap execution')
           setTimeout(() => {
+            console.log('⏰ Timer fired! Calling executeConversationalSwap')
             executeConversationalSwap()
           }, 2000)
 
         } else if (action === 'educate') {
+          console.log('📚 AI wants to educate first')
           // Luna wants to educate first - store the pending swap
           setCurrentQuestHash(questData.questHash)
           if (fromToken && toToken && amount) {
             setPendingSwap({
-              fromToken: fromToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
-              toToken: toToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+              fromToken: getTokenAddress(fromToken),
+              toToken: getTokenAddress(toToken),
               amount: amount,
               questHash: questData.questHash
             })
           }
+        } else {
+          console.log('⚠️ Unhandled swap intent action:', action)
         }
+      } else {
+        console.log('💬 No swap intent in AI response')
       }
     } catch (error) {
       console.error('Failed to get companion response:', error)
@@ -746,14 +953,7 @@ export default function WooSwapGameified() {
 
   const [currentQuestHash, setCurrentQuestHash] = useState<string>('')
   const [questAnswer, setQuestAnswer] = useState<string>('')
-  const [pendingSwap, setPendingSwap] = useState<{
-    fromToken: string;
-    toToken: string;
-    amount: string;
-    questHash: string;
-  } | null>(null)
   const [conversationalMode, setConversationalMode] = useState(true)
-
 
   if (!isConnected) {
     return (
@@ -852,7 +1052,7 @@ export default function WooSwapGameified() {
               <div className="grid lg:grid-cols-2 gap-8">
               {/* Companion Card */}
               <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 md:p-8 border border-pink-200 shadow-xl">
-                {(companion || (nftBalance && Number(nftBalance) > 0)) ? (
+                {companion || (nftBalance && Number(nftBalance) > 0) ? (
                   <div className="text-center space-y-4 md:space-y-6">
                     <div className="text-6xl md:text-8xl mb-4">
                       {companion?.avatar || '💖'}
@@ -980,8 +1180,8 @@ export default function WooSwapGameified() {
                     <div className="flex items-center justify-center gap-2 text-sm text-purple-700">
                       <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
                       <span className="font-medium">
-                        Luna is preparing: {pendingSwap.amount} {pendingSwap.fromToken === TOKEN_ADDRESSES.MON ? 'MON' : 'USDT'}
-                        → {pendingSwap.toToken === TOKEN_ADDRESSES.MON ? 'MON' : 'USDT'} ✨
+                        Luna is preparing: {pendingSwap.amount} {getTokenName(pendingSwap.fromToken)}
+                        → {getTokenName(pendingSwap.toToken)} ✨
                       </span>
                     </div>
                   </motion.div>

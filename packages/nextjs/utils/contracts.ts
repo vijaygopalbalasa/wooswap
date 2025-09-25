@@ -44,6 +44,9 @@ export const DEPLOYMENT_INFO = {
 export const TOKEN_ADDRESSES = {
   MON: '0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701' as `0x${string}`,
   USDT: '0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D' as `0x${string}`,
+  USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as `0x${string}`,
+  WETH: '0x5300000000000000000000000000000000000004' as `0x${string}`,
+  WBTC: '0x3aAB2285ddcDdaD8edf438C1bAB47e1a9D05a9b4' as `0x${string}`,
 } as const;
 
 // WooRouter ABI
