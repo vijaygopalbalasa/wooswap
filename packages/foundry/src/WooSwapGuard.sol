@@ -100,6 +100,18 @@ contract WooSwapGuard is Ownable {
         lastSwap[user] = block.timestamp;
     }
 
+    function createCompanion(address user) external returns (uint256) {
+        // Check if user already has an NFT
+        uint256 existingTokenId = _getUserTokenId(user);
+        if (existingTokenId != type(uint256).max) {
+            revert("User already has a companion");
+        }
+
+        // Mint new companion NFT
+        uint256 tokenId = relationNFT.mint(user);
+        return tokenId;
+    }
+
     function reconcile(address user) external {
         uint256 tokenId = _getUserTokenId(user);
         if (tokenId == type(uint256).max) revert InvalidUser();

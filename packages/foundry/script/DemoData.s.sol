@@ -16,7 +16,7 @@ interface IERC20Demo {
 contract DemoData is Script {
     // Test user addresses - replace with actual testnet addresses
     address constant ALICE = 0x1234567890123456789012345678901234567890;
-    address constant BOB = 0xAbcdEf123456789012345678901234567890AbCdEf;
+    address constant BOB = 0xaBcdEf123456789012345678901234567890aBCdEf;
     address constant CHARLIE = 0x9876543210987654321098765432109876543210;
 
     // Token addresses on Monad testnet
@@ -46,12 +46,12 @@ contract DemoData is Script {
         WooRelationNFT nft = WooRelationNFT(nftAddr);
         WooSwapGuard guard = WooSwapGuard(guardAddr);
         WooLP lp = WooLP(lpAddr);
-        WooRouter router = WooRouter(routerAddr);
+        WooRouter router = WooRouter(payable(routerAddr));
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        console.log("🎮 Generating WooSwap Demo Data...");
+        console.log("Generating WooSwap Demo Data...");
         console.log("Deployer:", deployer);
         console.log("Contracts loaded successfully");
 
@@ -78,7 +78,7 @@ contract DemoData is Script {
             guard.setQuestValidity(questHash1, block.timestamp + 600);
 
             // First swap (should increase affection)
-            executeRealSwap(router, ALICE, 1e18, questHash1);
+            executeRealSwap(router, guard, ALICE, 1e18, questHash1);
 
             // Send gift to boost affection
             vm.deal(ALICE, 5 ether);
@@ -88,7 +88,7 @@ contract DemoData is Script {
             // Second swap (should trigger rebate due to high affection)
             bytes32 questHash2 = keccak256("alice-quest-2");
             guard.setQuestValidity(questHash2, block.timestamp + 600);
-            executeRealSwap(router, ALICE, 2e18, questHash2);
+            executeRealSwap(router, guard, ALICE, 2e18, questHash2);
 
             uint256 gasUsed = gasStart - gasleft();
             uint16 aliceAffection = nft.affectionOf(aliceTokenId);
@@ -125,7 +125,7 @@ contract DemoData is Script {
             guard.setQuestValidity(eduQuestHash, block.timestamp + 600);
 
             // Educational swap with bonus
-            executeRealSwap(router, BOB, 0.5e18, eduQuestHash);
+            executeRealSwap(router, guard, BOB, 0.5e18, eduQuestHash);
 
             // Gift for loyalty
             vm.deal(BOB, 2 ether);
@@ -163,11 +163,11 @@ contract DemoData is Script {
             console.log("Minted NFT", charlieTokenId, "for Charlie");
 
             // Rapid swapping to trigger penalties and breakup
-            executeRealSwap(router, CHARLIE, 0.1e18, bytes32(0));
+            executeRealSwap(router, guard, CHARLIE, 0.1e18, bytes32(0));
 
             // Wait 30 seconds to avoid rapid swap penalty, then swap again
             vm.warp(block.timestamp + 30);
-            executeRealSwap(router, CHARLIE, 0.1e18, bytes32(0));
+            executeRealSwap(router, guard, CHARLIE, 0.1e18, bytes32(0));
 
             // Drastically reduce affection to trigger breakup
             guard.updateAffection(CHARLIE, -6000, bytes32(0), false, false);
@@ -178,7 +178,7 @@ contract DemoData is Script {
             bool hadBreakup = charlieAffectionAfterBreakup == 0;
 
             if (hadBreakup) {
-                console.log("💔 Breakup triggered for Charlie!");
+                console.log("Breakup triggered for Charlie!");
 
                 // Wait for breakup cooldown
                 vm.warp(block.timestamp + 31 minutes);
@@ -215,7 +215,7 @@ contract DemoData is Script {
 
         // Write CSV results
         vm.writeFile("./demo-results.csv", csvData);
-        console.log("\n📊 Demo results saved to demo-results.csv");
+        console.log("\nDemo results saved to demo-results.csv");
 
         // Summary
         console.log("\n=== Demo Summary ===");
@@ -224,16 +224,16 @@ contract DemoData is Script {
         console.log("Total gas used (all users):", results[0].gasUsed + results[1].gasUsed + results[2].gasUsed);
         console.log("Average gas per swap:", (results[0].gasUsed + results[1].gasUsed + results[2].gasUsed) / 5);
 
-        console.log("\n🎯 Demo Scenarios:");
-        console.log("✅ High affection user (Alice) - rebates earned");
-        console.log("📚 Educational user (Bob) - learning bonuses");
-        console.log("💔 Breakup user (Charlie) - penalties and reconciliation");
+        console.log("\nDemo Scenarios:");
+        console.log("High affection user (Alice) - rebates earned");
+        console.log("Educational user (Bob) - learning bonuses");
+        console.log("Breakup user (Charlie) - penalties and reconciliation");
 
-        console.log("\n🚀 Ready for live demo!");
+        console.log("\nReady for live demo!");
         console.log("Connect MetaMask to Monad testnet and visit your frontend!");
     }
 
-    function executeRealSwap(WooRouter router, address user, uint256 amountIn, bytes32 questHash) internal {
+    function executeRealSwap(WooRouter router, WooSwapGuard guard, address user, uint256 amountIn, bytes32 questHash) internal {
         address[] memory path = new address[](2);
         path[0] = MON_TOKEN;
         path[1] = USDT_TOKEN;
@@ -262,7 +262,7 @@ contract DemoData is Script {
             console.log("Swap failed for", user, "reason:", reason);
             // Still update affection for demo purposes if quest was valid
             if (questHash != bytes32(0)) {
-                WooSwapGuard guard = WooSwapGuard(guardAddr);
+                // guard is already passed as parameter
                 guard.updateAffection(user, 100, questHash, true, false);
             }
         } catch {

@@ -135,8 +135,8 @@ export default function WooSwap() {
 
   // Read NFT balance
   const { data: nftBalance } = useReadContract({
-    address: NFT_ADDR,
-    abi: nftABI,
+    address: CONTRACT_ADDRESSES.NFT,
+    abi: WOO_RELATION_NFT_ABI,
     functionName: 'balanceOf',
     args: user ? [user] : undefined,
     query: {
@@ -146,8 +146,8 @@ export default function WooSwap() {
 
   // Read user token ID
   const { data: tokenId } = useReadContract({
-    address: NFT_ADDR,
-    abi: nftABI,
+    address: CONTRACT_ADDRESSES.NFT,
+    abi: WOO_RELATION_NFT_ABI,
     functionName: 'getUserTokenId',
     args: user ? [user] : undefined,
     query: {
@@ -157,8 +157,8 @@ export default function WooSwap() {
 
   // Read affection
   const { data: affection } = useReadContract({
-    address: NFT_ADDR,
-    abi: nftABI,
+    address: CONTRACT_ADDRESSES.NFT,
+    abi: WOO_RELATION_NFT_ABI,
     functionName: 'affectionOf',
     args: tokenId !== undefined ? [tokenId] : undefined,
     query: {
@@ -169,8 +169,8 @@ export default function WooSwap() {
 
   // Read breakup time
   const { data: breakupTime } = useReadContract({
-    address: GUARD_ADDR,
-    abi: guardABI,
+    address: CONTRACT_ADDRESSES.GUARD,
+    abi: WOO_GUARD_ABI,
     functionName: 'breakupTime',
     args: user ? [user] : undefined,
     query: {
@@ -214,8 +214,8 @@ export default function WooSwap() {
 
     try {
       await writeContract({
-        address: NFT_ADDR,
-        abi: nftABI,
+        address: CONTRACT_ADDRESSES.NFT,
+        abi: WOO_RELATION_NFT_ABI,
         functionName: 'mint',
         args: [user],
       });
@@ -259,13 +259,13 @@ export default function WooSwap() {
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
 
       await writeContract({
-        address: ROUTER_ADDR,
-        abi: routerABI,
+        address: CONTRACT_ADDRESSES.ROUTER,
+        abi: WOO_ROUTER_ABI,
         functionName: 'swapWithWoo',
         args: [
-          [MON_ADDR, USDT_ADDR], // path
+          [TOKEN_ADDRESSES.MON, TOKEN_ADDRESSES.USDT], // path
           amountIn,
-          0n, // minOut (0 for demo)
+          BigInt(0), // minOut (0 for demo)
           user,
           deadline,
           quest.questHash as `0x${string}`,
@@ -282,8 +282,8 @@ export default function WooSwap() {
   const sendGift = async () => {
     try {
       await writeContract({
-        address: ROUTER_ADDR,
-        abi: routerABI,
+        address: CONTRACT_ADDRESSES.ROUTER,
+        abi: WOO_ROUTER_ABI,
         functionName: 'payGift',
         value: parseEther('1'), // 1 MON
       });
@@ -300,8 +300,8 @@ export default function WooSwap() {
 
     try {
       await writeContract({
-        address: GUARD_ADDR,
-        abi: guardABI,
+        address: CONTRACT_ADDRESSES.GUARD,
+        abi: WOO_GUARD_ABI,
         functionName: 'reconcile',
         args: [user],
       });
@@ -348,7 +348,7 @@ export default function WooSwap() {
     );
   }
 
-  if (!nftBalance || nftBalance === 0n) {
+  if (!nftBalance || nftBalance === BigInt(0)) {
     return (
       <div className="card w-96 bg-base-100 shadow-xl">
         <div className="card-body text-center">

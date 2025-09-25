@@ -1,8 +1,9 @@
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { ConnectKitButton } from 'connectkit';
+import { useAccount } from 'wagmi';
 import { motion } from 'framer-motion';
+import { modal } from '../utils/reown-config';
 
 // Dynamic import to avoid hydration issues with wallet connection
 const WooSwapGameified = dynamic(
@@ -21,6 +22,8 @@ const WooSwapGameified = dynamic(
 );
 
 const Home: NextPage = () => {
+  const { address, isConnected } = useAccount();
+
   return (
     <>
       <Head>
@@ -63,7 +66,26 @@ const Home: NextPage = () => {
             </motion.div>
 
             <div className="flex items-center space-x-4">
-              <ConnectKitButton />
+              {isConnected ? (
+                <div className="flex items-center space-x-2">
+                  <div className="text-sm text-gray-600">
+                    {address?.slice(0, 6)}...{address?.slice(-4)}
+                  </div>
+                  <button
+                    onClick={() => modal.open()}
+                    className="btn btn-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white border-none hover:from-pink-600 hover:to-purple-700"
+                  >
+                    Account
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => modal.open()}
+                  className="btn bg-gradient-to-r from-pink-500 to-purple-600 text-white border-none hover:from-pink-600 hover:to-purple-700"
+                >
+                  Connect Wallet 💖
+                </button>
+              )}
             </div>
           </div>
         </header>

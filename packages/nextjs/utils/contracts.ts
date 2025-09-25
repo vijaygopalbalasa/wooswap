@@ -25,10 +25,10 @@ export const monadTestnet = defineChain({
 
 // Real contract addresses - deployed on Monad testnet
 export const CONTRACT_ADDRESSES = {
-  NFT: "0xb00F943698687E916325a706dCaB6998B2187567" as `0x${string}`,
-  GUARD: "0x46ae94Fb7f129aCAA8932137b2226ab3b81988A7" as `0x${string}`,
-  LP: "0x85DA3317C78246D57203c6134BaDB372353e7701" as `0x${string}`,
-  ROUTER: "0x449c4eC0676c71c177Ca7B4545285b853C07B685" as `0x${string}`,
+  NFT: "0xC6F5b2A1C84050cbAa81C69f88B84cc80b28a20D" as `0x${string}`,
+  GUARD: "0x94DBa3486B05F8Ca28C55002B24bC069bB2A537B" as `0x${string}`,
+  LP: "0xEb23912a659d7CCa98624eA975487B9C82c9dEDb" as `0x${string}`,
+  ROUTER: "0x7c9fF7598d3CeABa092881119B23B484DA4816BF" as `0x${string}`,
   UNISWAP_V2_ROUTER: "0xfB8e1C3b833f9E67a71C859a132cf783b645e436" as `0x${string}`, // Real Monad testnet UniswapV2Router02
 } as const;
 
@@ -165,6 +165,13 @@ export const WOO_RELATION_NFT_ABI = [
 
 // WooSwapGuard ABI
 export const WOO_SWAP_GUARD_ABI = [
+  {
+    type: 'function',
+    name: 'createCompanion',
+    inputs: [{ name: 'user', type: 'address', internalType: 'address' }],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'nonpayable'
+  },
   {
     type: 'function',
     name: 'isSwapAllowed',

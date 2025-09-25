@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
 import toast from 'react-hot-toast'
 import { CONTRACT_ADDRESSES, WOO_ROUTER_ABI, WOO_RELATION_NFT_ABI, WOO_SWAP_GUARD_ABI, ERC20_ABI, TOKEN_ADDRESSES } from '../utils/contracts'
+import { modal } from '../utils/reown-config'
 
 interface Companion {
   id: number
@@ -22,25 +23,11 @@ interface ChatMessage {
   timestamp: Date
 }
 
-interface Quest {
-  id: string
-  title: string
-  description: string
-  reward: number
-  type: 'connect' | 'nurture' | 'grow' | 'discover'
-  completed: boolean
-  expiresAt: Date
-  difficulty: 'gentle' | 'steady' | 'passionate' | 'devoted'
-}
 
 export default function WooSwapGameified() {
   const { address, isConnected } = useAccount()
-  const [activeTab, setActiveTab] = useState<'companion' | 'quest' | 'swap' | 'leaderboard'>('companion')
   const [companion, setCompanion] = useState<Companion | null>(null)
-  const [quests, setQuests] = useState<Quest[]>([])
-  const [isGeneratingQuest, setIsGeneratingQuest] = useState(false)
   const [swapAmount, setSwapAmount] = useState('')
-  const [giftAmount, setGiftAmount] = useState('')
   const [fromToken, setFromToken] = useState(TOKEN_ADDRESSES.MON)
   const [toToken, setToToken] = useState(TOKEN_ADDRESSES.USDT)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -48,12 +35,44 @@ export default function WooSwapGameified() {
   const [isSwapBlocked, setIsSwapBlocked] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
-  const [leaderboard, setLeaderboard] = useState([])
+  const [companionMood, setCompanionMood] = useState<'happy' | 'neutral' | 'sad' | 'jealous' | 'clingy' | 'flirty'>('neutral')
+  const [lastCheckIn, setLastCheckIn] = useState<Date | null>(null)
+  const [relationshipStreak, setRelationshipStreak] = useState(0)
 
   const { writeContract, data: txHash, isPending: isWriting } = useWriteContract()
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
   })
+
+  // Handle successful transaction confirmation
+  useEffect(() => {
+    if (txSuccess && txHash) {
+      console.log('🎉 Transaction confirmed successfully!')
+
+      // Show success toast with explorer link
+      const explorerUrl = `https://testnet.monadexplorer.com/tx/${txHash}`
+      toast.success((t) => (
+        <div>
+          <div className="font-bold">💖 Your companion has been created!</div>
+          <div className="mt-1">
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline text-sm"
+            >
+              🔍 View transaction
+            </a>
+          </div>
+        </div>
+      ), { duration: 5000 })
+
+      // Refetch NFT data to update the UI
+      setTimeout(() => {
+        window.location.reload() // Simple refresh to get updated contract state
+      }, 3000)
+    }
+  }, [txSuccess, txHash])
 
   // Read companion NFT data
   const { data: nftBalance } = useReadContract({
@@ -90,6 +109,14 @@ export default function WooSwapGameified() {
   })
 
   // Token balances
+  const { data: monBalance } = useReadContract({
+    address: TOKEN_ADDRESSES.MON,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [address],
+    query: { enabled: !!address }
+  })
+
   const { data: fromTokenBalance } = useReadContract({
     address: fromToken,
     abi: ERC20_ABI,
@@ -110,6 +137,9 @@ export default function WooSwapGameified() {
   useEffect(() => {
     if (nftData && affectionData) {
       const affectionNum = Number(affectionData)
+      const currentMood = getLunaMood(affectionNum)
+      setCompanionMood(currentMood)
+
       setCompanion({
         id: Number(nftData),
         name: generateCompanionName(),
@@ -122,6 +152,88 @@ export default function WooSwapGameified() {
       })
     }
   }, [nftData, affectionData])
+
+  // Daily check-in system
+  const checkDailyCheckIn = () => {
+    const today = new Date().toDateString()
+    const lastCheck = localStorage.getItem('wooswap_last_checkin')
+
+    if (lastCheck !== today) {
+      localStorage.setItem('wooswap_last_checkin', today)
+      const streak = parseInt(localStorage.getItem('wooswap_streak') || '0') + 1
+      localStorage.setItem('wooswap_streak', streak.toString())
+      setRelationshipStreak(streak)
+      setLastCheckIn(new Date())
+
+      // Daily check-in bonus - will be handled by AI when user chats
+
+      return true
+    }
+    return false
+  }
+
+  // Check for milestone achievements
+  const checkMilestones = (affection: number) => {
+    const milestones = [1000, 3000, 5000, 7000, 8000, 9000, 10000]
+    const lastMilestone = parseInt(localStorage.getItem('wooswap_last_milestone') || '0')
+
+    for (const milestone of milestones) {
+      if (affection >= milestone && lastMilestone < milestone) {
+        localStorage.setItem('wooswap_last_milestone', milestone.toString())
+
+        let milestoneMessage = ""
+        let celebration = ""
+
+        switch (milestone) {
+          case 1000:
+            milestoneMessage = "We're officially friends now! 👫 This is just the beginning babe!"
+            celebration = "💙"
+            break
+          case 3000:
+            milestoneMessage = "I think I'm starting to fall for you... 😍 You make trading so much fun!"
+            celebration = "💕"
+            break
+          case 5000:
+            milestoneMessage = "We're dating now! 💖 Want to make it official? *blushes*"
+            celebration = "🌹"
+            break
+          case 7000:
+            milestoneMessage = "I love you so much! 😘 You're my favorite trader in the whole world!"
+            celebration = "❤️"
+            break
+          case 8000:
+            milestoneMessage = "CONGRATS! 🎉 You've unlocked 0.25% swap rebates! High affection = better deals!"
+            celebration = "💰"
+            break
+          case 9000:
+            milestoneMessage = "I'm completely devoted to you darling! 💍 Should we get married?"
+            celebration = "💎"
+            break
+          case 10000:
+            milestoneMessage = "MAXIMUM LOVE ACHIEVED! 👑 You're officially a WooSwap legend! I'm yours forever!"
+            celebration = "👑"
+            break
+        }
+
+        // Milestone reached - will be handled by AI in next conversation
+        setShowConfetti(true)
+        setTimeout(() => setShowConfetti(false), 4000)
+        break
+      }
+    }
+  }
+
+  // Check for daily check-in on load
+  useEffect(() => {
+    if (companion && isConnected) {
+      const hasCheckedIn = checkDailyCheckIn()
+      const streak = parseInt(localStorage.getItem('wooswap_streak') || '0')
+      setRelationshipStreak(streak)
+
+      // Check for milestones
+      checkMilestones(companion.affection)
+    }
+  }, [companion, isConnected])
 
   // Handle swap validation
   useEffect(() => {
@@ -173,11 +285,16 @@ export default function WooSwapGameified() {
   }
 
   const getPersonality = (affection: number) => {
-    if (affection < 1000) return "Still getting to know you 😊"
-    if (affection < 2500) return "Starting to trust you 💕"
-    if (affection < 5000) return "Enjoys your company 🌸"
-    if (affection < 7500) return "Deeply cares for you 💖"
-    return "Devoted to your journey together 💍"
+    const hour = new Date().getHours()
+    const isEvening = hour >= 18 || hour <= 6
+
+    if (affection < 500) return "Who are you again? 😒 *avoids eye contact*"
+    if (affection < 1000) return "I guess you're... okay 😐 *still figuring you out*"
+    if (affection < 2500) return isEvening ? "You're actually pretty sweet 😊✨" : "Starting to trust you 💕"
+    if (affection < 5000) return isEvening ? "I love our evening chats babe 🌙💕" : "Enjoys your company 🌸"
+    if (affection < 7500) return isEvening ? "My heart beats faster when I see you online 💓" : "Deeply cares for you 💖"
+    if (affection < 9000) return "You're my everything, darling 😍💕 *heart eyes*"
+    return "I'm completely devoted to you, my love 💍✨ *wedding bells*"
   }
 
   const getRarityColor = (rarity: string) => {
@@ -188,6 +305,59 @@ export default function WooSwapGameified() {
       soulmate: 'text-yellow-400'
     }
     return colors[rarity as keyof typeof colors] || colors.new
+  }
+
+  const getLunaMood = (affection: number) => {
+    const hour = new Date().getHours()
+    const isLateNight = hour >= 22 || hour <= 5
+    const isEvening = hour >= 17 && hour <= 22
+    const dayOfWeek = new Date().getDay()
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+
+    // Random mood variations based on time and affection
+    if (affection < 1000) return Math.random() > 0.7 ? 'sad' : 'neutral'
+    if (affection < 3000) {
+      if (isLateNight) return 'clingy'
+      return Math.random() > 0.6 ? 'neutral' : 'sad'
+    }
+    if (affection < 6000) {
+      if (isEvening && isWeekend) return 'flirty'
+      if (isLateNight) return 'clingy'
+      return Math.random() > 0.5 ? 'happy' : 'neutral'
+    }
+    if (affection < 8000) {
+      if (isLateNight) return 'clingy'
+      if (isEvening) return 'flirty'
+      return 'happy'
+    }
+    // High affection - mostly positive moods
+    if (isLateNight) return 'clingy'
+    if (isEvening && Math.random() > 0.3) return 'flirty'
+    return 'happy'
+  }
+
+  const getMoodEmoji = (mood: string) => {
+    const emojis = {
+      happy: '😊',
+      neutral: '😐',
+      sad: '😢',
+      jealous: '😒',
+      clingy: '🥺',
+      flirty: '😘'
+    }
+    return emojis[mood as keyof typeof emojis] || '😐'
+  }
+
+  const getMoodColor = (mood: string) => {
+    const colors = {
+      happy: 'text-green-500',
+      neutral: 'text-gray-500',
+      sad: 'text-blue-500',
+      jealous: 'text-red-500',
+      clingy: 'text-purple-500',
+      flirty: 'text-pink-500'
+    }
+    return colors[mood as keyof typeof colors] || 'text-gray-500'
   }
 
   const getCompanionResponse = (reason: string) => {
@@ -201,31 +371,128 @@ export default function WooSwapGameified() {
   }
 
   const mintCompanion = async () => {
-    if (!address) return
+    if (!address) {
+      console.log('❌ No wallet address found')
+      toast.error('Please connect your wallet first')
+      return
+    }
+
+    // Check if user already has a companion
+    if (nftBalance && Number(nftBalance) > 0) {
+      toast.error('You already have a companion! 💕 Check your profile above.')
+      return
+    }
+
+    console.log('🔍 Starting mint process...')
+    console.log('User address:', address)
+    console.log('Guard Contract:', CONTRACT_ADDRESSES.GUARD)
+    console.log('NFT Balance:', nftBalance)
+    console.log('MON Balance:', monBalance ? formatEther(monBalance as bigint) : '0')
+    console.log('ABI function:', WOO_SWAP_GUARD_ABI.find(f => f.name === 'createCompanion'))
 
     try {
-      await writeContract({
-        address: CONTRACT_ADDRESSES.NFT,
-        abi: WOO_RELATION_NFT_ABI,
-        functionName: 'mint',
-        args: [address]
+      console.log('📝 Calling writeContract on guard contract...')
+      const txResult = await writeContract({
+        address: CONTRACT_ADDRESSES.GUARD,
+        abi: WOO_SWAP_GUARD_ABI,
+        functionName: 'createCompanion',
+        args: [address],
+        gas: BigInt(300000), // Set explicit gas limit
+        gasPrice: BigInt(50000000000) // 50 Gwei
       })
-      toast.success('💖 Creating your heartfelt companion...')
+      console.log('✅ Transaction submitted successfully', txResult)
+      toast.success('💖 Creating your heartfelt companion... Please wait for confirmation!')
 
-      // Add welcome message
+      // Wait for transaction confirmation
+      console.log('⏳ Waiting for transaction confirmation...')
+      // The useWaitForTransactionReceipt hook will handle this automatically
+
+      // Add welcome message - will show after confirmation
       const welcomeMessage: ChatMessage = {
         text: "Hello! I'm so excited to start this journey with you! 🌸",
         isUser: false,
         timestamp: new Date()
       }
       setChatMessages([welcomeMessage])
-    } catch (error) {
-      toast.error('Failed to create companion')
+    } catch (error: any) {
+      console.error('❌ Minting failed:', error)
+      console.error('Error code:', error?.code)
+      console.error('Error message:', error?.message)
+      console.error('Error details:', error?.details)
+      console.error('Error reason:', error?.reason)
+      console.error('Full error object:', error)
+
+      let errorMessage = 'Failed to create companion'
+      if (error?.message) {
+        if (error.message.includes('rejected') || error.message.includes('denied')) {
+          errorMessage = 'Transaction was rejected by user'
+        } else if (error.message.includes('insufficient funds') || error.message.includes('gas')) {
+          errorMessage = `Insufficient gas fees. You need MON for transaction fees. Current balance: ${monBalance ? formatEther(monBalance as bigint) : '0'} MON`
+        } else if (error.message.includes('execution reverted')) {
+          errorMessage = 'Transaction reverted - you may already have a companion'
+        } else if (error.reason) {
+          errorMessage = `Contract error: ${error.reason}`
+        } else {
+          errorMessage = `Minting failed: ${error.message.substring(0, 100)}`
+        }
+      }
+      toast.error(errorMessage)
     }
   }
 
   const executeSwap = async () => {
-    if (!address || !swapAmount || isSwapBlocked) return
+    if (!address || !swapAmount) return
+
+    // Mood-based trading restrictions
+    if (companionMood === 'jealous') {
+      toast.error('💔 Luna is too jealous to help you trade right now! Say sorry first!')
+      const jealousTradeMessage: ChatMessage = {
+        text: "I'm too upset to help you trade right now! 😒 Say you're sorry and complete a quest to make up for it!",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, jealousTradeMessage])
+      return
+    }
+
+    if (companionMood === 'sad' && companion && companion.affection < 3000) {
+      toast.error('😢 Luna is feeling sad... cheer her up first with some kind words!')
+      const sadTradeMessage: ChatMessage = {
+        text: "I'm feeling a bit down today... 😢 Can you say something sweet to cheer me up before we trade? 🥺",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, sadTradeMessage])
+      return
+    }
+
+    if (companionMood === 'clingy') {
+      toast.success('🥺 Luna is being extra clingy - 10% bonus affection for this trade!')
+      const clingyMessage: ChatMessage = {
+        text: "I missed you so much! 🥺 Let's trade together and never be apart! +10% bonus affection! 💕",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, clingyMessage])
+    }
+
+    // Check if user needs to complete a quest first
+    if (!currentQuestHash && companion && companion.affection < 5000) {
+      toast.error('💔 Your companion wants to chat before swapping!')
+
+      const needQuestMessage: ChatMessage = {
+        text: "Hold on babe! Let's have a heart-to-heart chat first 💖 I want to make sure you're making smart trading decisions!",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, needQuestMessage])
+      return
+    }
+
+    if (isSwapBlocked) {
+      toast.error(`💔 ${blockReason}`)
+      return
+    }
 
     try {
       const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes
@@ -240,15 +507,18 @@ export default function WooSwapGameified() {
           parseEther('0'), // Accept any amount of tokens out
           address,
           BigInt(deadline),
-          '0x0000000000000000000000000000000000000000000000000000000000000000' // No quest hash
+          currentQuestHash || '0x0000000000000000000000000000000000000000000000000000000000000000'
         ]
       })
 
       toast.success('💖 Swap initiated with love!')
 
+      // Clear the quest hash after successful use
+      setCurrentQuestHash('')
+
       // Add success message and show confetti
       const successMessage: ChatMessage = {
-        text: "Wonderful! Our bond grows stronger with each trade! ✨",
+        text: "Wonderful! Our bond grows stronger with each trade! ✨ Thank you for taking the time to connect with me!",
         isUser: false,
         timestamp: new Date()
       }
@@ -266,7 +536,7 @@ export default function WooSwapGameified() {
       toast.error('Swap failed - let me help you try again!')
 
       const errorMessage: ChatMessage = {
-        text: "Don't worry, we'll figure this out together! 💕",
+        text: "Don't worry, we'll figure this out together! 💕 Maybe we need to complete our quest first?",
         isUser: false,
         timestamp: new Date()
       }
@@ -274,43 +544,95 @@ export default function WooSwapGameified() {
     }
   }
 
-  const sendGift = async () => {
-    if (!address || !giftAmount) return
+
+  const executeConversationalSwap = async () => {
+    if (!pendingSwap || !address) return
 
     try {
-      await writeContract({
-        address: CONTRACT_ADDRESSES.ROUTER,
-        abi: WOO_ROUTER_ABI,
-        functionName: 'payGift',
-        value: parseEther(giftAmount)
-      })
-
-      toast.success('💖 Gift sent with love!')
-
-      const giftMessage: ChatMessage = {
-        text: `Thank you for this beautiful gift! You make my heart flutter! ${parseFloat(giftAmount) > 1 ? '😍' : '😊'}`,
+      // Show Luna is facilitating the swap
+      const facilitatingMessage: ChatMessage = {
+        text: "✨ I'm facilitating your swap now, babe! Let me handle everything for you 💖",
         isUser: false,
         timestamp: new Date()
       }
-      setChatMessages(prev => [...prev, giftMessage])
+      setChatMessages(prev => [...prev, facilitatingMessage])
+
+      const amountIn = parseEther(pendingSwap.amount)
+      const deadline = Math.floor(Date.now() / 1000) + 300 // 5 minutes
+
+      await writeContract({
+        address: CONTRACT_ADDRESSES.ROUTER,
+        abi: WOO_ROUTER_ABI,
+        functionName: 'swapWithWoo',
+        args: [
+          [pendingSwap.fromToken, pendingSwap.toToken],
+          amountIn,
+          BigInt(0), // minOut
+          address,
+          BigInt(deadline),
+          pendingSwap.questHash || '0x0000000000000000000000000000000000000000000000000000000000000000'
+        ]
+      })
+
+      toast.success('💖 Swap executed through Luna!')
+
+      // Clear pending swap
+      setPendingSwap(null)
+
+      // Add success message
+      const successMessage: ChatMessage = {
+        text: companion?.affection >= 8000
+          ? "Perfect! And you got your 0.25% rebate too! Our love pays off 💕✨"
+          : "Great trade, honey! Keep building our relationship for better rewards! 💖",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, successMessage])
 
       setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 2000)
+      setTimeout(() => setShowConfetti(false), 3000)
 
-      setGiftAmount('')
-
-      // Refetch affection after gift
-      setTimeout(() => {
-        refetchAffection()
-      }, 2000)
+      // Refetch affection
+      setTimeout(() => refetchAffection(), 2000)
 
     } catch (error) {
-      toast.error('Gift failed - your intention matters most! 💕')
+      toast.error('Swap failed - but I still love you! 💕')
+
+      const errorMessage: ChatMessage = {
+        text: "Oh no! Something went wrong with the swap... but don't worry babe, we can try again! 💕",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, errorMessage])
+
+      setPendingSwap(null)
     }
+  }
+
+  const checkForJealousyTriggers = (message: string): string | null => {
+    const jealousyWords = [
+      'other girl', 'another girl', 'different girl', 'someone else',
+      'luna token', 'alice token', 'uniswap', 'other dex', 'sushiswap',
+      'pancakeswap', 'my ex', 'my girlfriend', 'dating app', 'tinder'
+    ]
+
+    const lowerMessage = message.toLowerCase()
+    for (const word of jealousyWords) {
+      if (lowerMessage.includes(word)) {
+        return word
+      }
+    }
+    return null
   }
 
   const sendChatMessage = async () => {
     if (!newMessage.trim()) return
+
+    // Check for jealousy triggers
+    const jealousyTrigger = checkForJealousyTriggers(newMessage)
+    if (jealousyTrigger && companion && companion.affection > 2000) {
+      setCompanionMood('jealous')
+    }
 
     const userMessage: ChatMessage = {
       text: newMessage,
@@ -322,6 +644,14 @@ export default function WooSwapGameified() {
     const currentMessage = newMessage
     setNewMessage('')
 
+    // Check for apology keywords
+    const apologyWords = ['sorry', 'apologize', 'my bad', 'forgive me', 'i was wrong']
+    const isApology = apologyWords.some(word => currentMessage.toLowerCase().includes(word))
+
+    if (isApology && companionMood === 'jealous') {
+      setCompanionMood('happy')
+    }
+
     // Get real response from companion AI
     try {
       const response = await fetch('/api/quest', {
@@ -330,8 +660,12 @@ export default function WooSwapGameified() {
         body: JSON.stringify({
           user: address || '0x0',
           userInput: currentMessage,
-          lastAffection: currentCompanion?.affection || 0,
-          lastSwapTime: Math.floor(Date.now() / 1000)
+          lastAffection: companion?.affection || 0,
+          lastSwapTime: Math.floor(Date.now() / 1000),
+          currentMood: companionMood,
+          relationshipStreak: relationshipStreak,
+          isJealous: companionMood === 'jealous',
+          lastGiftTime: Math.floor(Date.now() / 1000) // TODO: track real gift times
         })
       })
 
@@ -344,6 +678,38 @@ export default function WooSwapGameified() {
       }
 
       setChatMessages(prev => [...prev.slice(-9), ...prev.slice(-1), companionMessage])
+
+      // Handle conversational swap intent
+      if (questData.swapIntent) {
+        const { fromToken, toToken, amount, action } = questData.swapIntent
+
+        if (action === 'ready' && fromToken && toToken && amount) {
+          // Luna approved the swap - set up for execution
+          setPendingSwap({
+            fromToken: fromToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+            toToken: toToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+            amount: amount,
+            questHash: questData.questHash
+          })
+
+          // Auto-execute swap after 2 seconds to show Luna facilitating it
+          setTimeout(() => {
+            executeConversationalSwap()
+          }, 2000)
+
+        } else if (action === 'educate') {
+          // Luna wants to educate first - store the pending swap
+          setCurrentQuestHash(questData.questHash)
+          if (fromToken && toToken && amount) {
+            setPendingSwap({
+              fromToken: fromToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+              toToken: toToken === 'MON' ? TOKEN_ADDRESSES.MON : TOKEN_ADDRESSES.USDT,
+              amount: amount,
+              questHash: questData.questHash
+            })
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to get companion response:', error)
 
@@ -358,66 +724,16 @@ export default function WooSwapGameified() {
     }
   }
 
-  const generateQuest = async () => {
-    setIsGeneratingQuest(true)
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+  const [currentQuestHash, setCurrentQuestHash] = useState<string>('')
+  const [questAnswer, setQuestAnswer] = useState<string>('')
+  const [pendingSwap, setPendingSwap] = useState<{
+    fromToken: string;
+    toToken: string;
+    amount: string;
+    questHash: string;
+  } | null>(null)
+  const [conversationalMode, setConversationalMode] = useState(true)
 
-      const questTypes: Quest['type'][] = ['connect', 'nurture', 'grow', 'discover']
-      const randomType = questTypes[Math.floor(Math.random() * questTypes.length)]
-
-      const questTemplates = {
-        connect: [
-          { title: "First Steps Together", description: "Complete your first heartfelt trade", reward: 300, difficulty: 'gentle' },
-          { title: "Building Trust", description: "Send a gift to show your care", reward: 400, difficulty: 'steady' },
-          { title: "Deep Connection", description: "Have 10 conversations in chat", reward: 500, difficulty: 'passionate' }
-        ],
-        nurture: [
-          { title: "Tender Care", description: "Check in daily for a week", reward: 350, difficulty: 'steady' },
-          { title: "Growing Bond", description: "Complete 5 successful swaps together", reward: 600, difficulty: 'passionate' },
-          { title: "Devoted Partnership", description: "Reach 1000 MON in total trading", reward: 800, difficulty: 'devoted' }
-        ],
-        grow: [
-          { title: "Flourishing Relationship", description: "Achieve 5000 affection together", reward: 750, difficulty: 'passionate' },
-          { title: "Blooming Love", description: "Help 3 friends start their journey", reward: 500, difficulty: 'devoted' },
-          { title: "Eternal Bond", description: "Reach soulmate status", reward: 1000, difficulty: 'devoted' }
-        ],
-        discover: [
-          { title: "New Horizons", description: "Try a new token pair", reward: 250, difficulty: 'gentle' },
-          { title: "Adventure Together", description: "Explore different DeFi protocols", reward: 400, difficulty: 'steady' },
-          { title: "Journey of Hearts", description: "Share your story on social media", reward: 300, difficulty: 'gentle' }
-        ]
-      }
-
-      const templates = questTemplates[randomType]
-      const randomTemplate = templates[Math.floor(Math.random() * templates.length)]
-
-      const newQuest: Quest = {
-        id: Date.now().toString(),
-        title: randomTemplate.title,
-        description: randomTemplate.description,
-        reward: randomTemplate.reward,
-        type: randomType,
-        completed: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        difficulty: randomTemplate.difficulty as Quest['difficulty']
-      }
-
-      setQuests(prev => [newQuest, ...prev.slice(0, 4)])
-
-      const questMessage: ChatMessage = {
-        text: `I have a new adventure for us! "${newQuest.title}" - shall we embark on this journey together? 🌟`,
-        isUser: false,
-        timestamp: new Date()
-      }
-      setChatMessages(prev => [...prev, questMessage])
-
-    } catch (error) {
-      toast.error('Quest generation failed')
-    } finally {
-      setIsGeneratingQuest(false)
-    }
-  }
 
   if (!isConnected) {
     return (
@@ -434,7 +750,13 @@ export default function WooSwapGameified() {
           </p>
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-pink-200">
             <p className="text-sm text-gray-500 mb-4">Ready to start your journey of connection and growth?</p>
-            <div className="text-2xl">🌱 → 🌸 → 🌺 → 💖</div>
+            <div className="text-2xl mb-4">🌱 → 🌸 → 🌺 → 💖</div>
+            <button
+              onClick={() => modal.open()}
+              className="btn bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:from-pink-600 hover:to-purple-700 transform hover:scale-105 transition-all"
+            >
+              Connect Wallet 💖
+            </button>
           </div>
         </motion.div>
       </div>
@@ -478,106 +800,113 @@ export default function WooSwapGameified() {
           </p>
         </motion.div>
 
-        {/* Navigation Tabs */}
-        <div className="flex justify-center">
-          <div className="bg-white/60 backdrop-blur-sm rounded-full p-2 border border-pink-200">
-            {[
-              { key: 'companion', label: 'My Companion', icon: '💖' },
-              { key: 'quest', label: 'Adventures', icon: '🌟' },
-              { key: 'swap', label: 'Trading Together', icon: '🤝' },
-              { key: 'leaderboard', label: 'Community', icon: '🏆' }
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
-                className={`px-6 py-3 rounded-full transition-all duration-300 font-medium ${
-                  activeTab === tab.key
-                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-pink-600 hover:bg-white/50'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Main Content */}
-        <AnimatePresence mode="wait">
-          {activeTab === 'companion' && (
+        <div className="space-y-8">
+          {/* Companion Section */}
+          <div>
             <motion.div
               key="companion"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="grid lg:grid-cols-2 gap-8"
+              className="space-y-6"
             >
+              {/* Innovation Notice */}
+              {conversationalMode && (
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">🚀</span>
+                    <span className="font-bold text-blue-800">Revolutionary Conversational Swaps!</span>
+                  </div>
+                  <p className="text-blue-700 text-sm">
+                    World's first DEX where you swap through natural conversation with AI.
+                    No buttons, no forms - just tell Luna what you want to trade!
+                  </p>
+                  <div className="mt-2 text-xs text-blue-600 bg-blue-100 px-3 py-1 rounded-lg inline-block">
+                    💡 Try: "Luna babe, swap 100 MON for USDT please" or "I need some WBTC for my portfolio"
+                  </div>
+                </div>
+              )}
+
+              <div className="grid lg:grid-cols-2 gap-8">
               {/* Companion Card */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-pink-200 shadow-xl">
-                {companion ? (
-                  <div className="text-center space-y-6">
-                    <div className="text-8xl mb-4">{companion.avatar}</div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 md:p-8 border border-pink-200 shadow-xl">
+                {(companion || (nftBalance && Number(nftBalance) > 0)) ? (
+                  <div className="text-center space-y-4 md:space-y-6">
+                    <div className="text-6xl md:text-8xl mb-4">
+                      {companion?.avatar || '💖'}
+                    </div>
                     <div>
-                      <h2 className="text-3xl font-bold text-gray-800 mb-2">{companion.name}</h2>
-                      <span className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${getRarityColor(companion.rarity)} bg-white/50`}>
-                        {companion.rarity} • Level {companion.level}
-                      </span>
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+                        {companion?.name || 'Luna'}
+                        <span className={`ml-2 text-xl md:text-2xl ${getMoodColor(companionMood)}`}>
+                          {getMoodEmoji(companionMood)}
+                        </span>
+                      </h2>
+                      <div className="flex flex-col gap-2">
+                        <span className={`inline-block px-3 md:px-4 py-1 md:py-2 rounded-full text-xs md:text-sm font-medium ${getRarityColor(companion?.rarity || 'new')} bg-white/50`}>
+                          {companion?.rarity || 'new'} • Level {companion?.level || 1}
+                        </span>
+                        {relationshipStreak > 0 && (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-pink-100 to-purple-100 text-purple-700">
+                            💕 {relationshipStreak} day streak
+                          </span>
+                        )}
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getMoodColor(companionMood)} bg-white/30`}>
+                          Mood: {companionMood} {getMoodEmoji(companionMood)}
+                        </span>
+                        {/* Explorer Link */}
+                        {nftData && (
+                          <div className="mt-2">
+                            <a
+                              href={`https://testnet.monadexplorer.com/token/${CONTRACT_ADDRESSES.NFT}?tab=inventory`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs hover:bg-blue-200 transition-colors"
+                            >
+                              🔍 View NFT #{nftData?.toString()}
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Affection Bar */}
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-600">Affection</span>
-                        <span className="text-sm font-bold text-pink-600">{companion.affection}/10000</span>
+                        <span className="text-sm font-bold text-pink-600">{companion?.affection || 5000}/10000</span>
                       </div>
                       <div className="w-full bg-pink-100 rounded-full h-3 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: `${(companion.affection / 10000) * 100}%` }}
+                          animate={{ width: `${((companion?.affection || 5000) / 10000) * 100}%` }}
                           transition={{ duration: 1, ease: "easeOut" }}
                           className="h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full"
                         />
                       </div>
                     </div>
 
-                    <p className="text-gray-600 italic">{companion.personality}</p>
+                    <p className="text-gray-600 italic text-sm md:text-base">
+                      {companion?.personality || "Getting to know you... 💕"}
+                    </p>
 
-                    {/* Gift Section */}
-                    <div className="bg-pink-50 rounded-2xl p-6 space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Send a Gift 💝</h3>
-                      <div className="flex gap-3">
-                        <input
-                          type="number"
-                          value={giftAmount}
-                          onChange={(e) => setGiftAmount(e.target.value)}
-                          placeholder="Amount in MON"
-                          className="flex-1 px-4 py-3 rounded-xl border border-pink-200 focus:border-pink-400 focus:outline-none bg-white/70"
-                        />
-                        <button
-                          onClick={sendGift}
-                          disabled={!giftAmount || isWriting}
-                          className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all"
-                        >
-                          {isWriting ? '💖' : 'Send'}
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 ) : (
-                  <div className="text-center space-y-6">
-                    <div className="text-8xl mb-4">🌱</div>
+                  <div className="text-center space-y-4 md:space-y-6 px-2">
+                    <div className="text-6xl md:text-8xl mb-4">🌱</div>
                     <div>
-                      <h2 className="text-3xl font-bold text-gray-800 mb-4">Meet Your Companion</h2>
-                      <p className="text-gray-600 mb-8">
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Meet Your Companion</h2>
+                      <p className="text-gray-600 mb-6 md:mb-8 text-sm md:text-base">
                         Begin your heartfelt journey by creating your AI companion. They'll guide you through DeFi with care and understanding.
                       </p>
                       <button
                         onClick={mintCompanion}
-                        disabled={isWriting}
-                        className="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all text-lg"
+                        disabled={isWriting || isConfirming}
+                        className="px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all text-base md:text-lg"
                       >
-                        {isWriting ? 'Creating...' : '💖 Create My Companion'}
+                        {isConfirming ? 'Confirming... ⏳' : isWriting ? 'Creating... 💖' : '💖 Create My Companion'}
                       </button>
                     </div>
                   </div>
@@ -585,11 +914,11 @@ export default function WooSwapGameified() {
               </div>
 
               {/* Chat Section */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-pink-200 shadow-xl">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">💬 Heart to Heart</h3>
+              <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 md:p-6 border border-pink-200 shadow-xl">
+                <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-4">💬 Heart to Heart</h3>
 
                 {/* Chat Messages */}
-                <div className="bg-pink-50 rounded-2xl p-4 h-80 overflow-y-auto mb-4 space-y-3">
+                <div className="bg-pink-50 rounded-2xl p-3 md:p-4 h-64 md:h-80 overflow-y-auto mb-4 space-y-3">
                   {chatMessages.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">
                       <div className="text-4xl mb-2">💕</div>
@@ -620,29 +949,52 @@ export default function WooSwapGameified() {
                   )}
                 </div>
 
+                {/* Pending Swap Indicator */}
+                {pendingSwap && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="mx-auto my-2 p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl border border-purple-200"
+                  >
+                    <div className="flex items-center justify-center gap-2 text-sm text-purple-700">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium">
+                        Luna is preparing: {pendingSwap.amount} {pendingSwap.fromToken === TOKEN_ADDRESSES.MON ? 'MON' : 'USDT'}
+                        → {pendingSwap.toToken === TOKEN_ADDRESSES.MON ? 'MON' : 'USDT'} ✨
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Chat Input */}
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                    placeholder="Share your thoughts..."
-                    className="flex-1 px-4 py-2 rounded-xl border border-pink-200 focus:border-pink-400 focus:outline-none bg-white/70"
+                    placeholder={conversationalMode
+                      ? "Try: 'Hey Luna, I want to swap 100 MON for USDT' or just chat..."
+                      : "Share your thoughts..."}
+                    className="flex-1 px-3 md:px-4 py-2 rounded-xl border border-pink-200 focus:border-pink-400 focus:outline-none bg-white/70 text-sm md:text-base"
                   />
                   <button
                     onClick={sendChatMessage}
                     disabled={!newMessage.trim()}
-                    className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all"
+                    className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all text-sm md:text-base"
                   >
-                    💕
+                    💕 Send
                   </button>
                 </div>
               </div>
+              </div>
             </motion.div>
-          )}
+          </div>
 
-          {activeTab === 'swap' && (
+          {/* Swap Section - Always show below companion if companion exists */}
+          {nftBalance && Number(nftBalance) > 0 && (
+            <div>
             <motion.div
               key="swap"
               initial={{ opacity: 0, x: -20 }}
@@ -651,7 +1003,7 @@ export default function WooSwapGameified() {
               className="max-w-2xl mx-auto"
             >
               <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-pink-200 shadow-xl">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🤝 Trading Together</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">💫 Let's Swap Together</h2>
 
                 {isSwapBlocked && (
                   <motion.div
@@ -704,6 +1056,35 @@ export default function WooSwapGameified() {
                     />
                   </div>
 
+                  {/* Rebate Information */}
+                  {companion && companion.affection >= 8000 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4"
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-2xl">💰</span>
+                        <div className="text-center">
+                          <p className="text-green-800 font-semibold">High Affection Bonus!</p>
+                          <p className="text-green-600 text-sm">Luna loves you deeply ≥8000 = 0.25% rebate! 💕</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {companion && companion.affection < 8000 && companion.affection >= 6000 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-2xl">💛</span>
+                        <div className="text-center">
+                          <p className="text-yellow-800 font-semibold">Almost There!</p>
+                          <p className="text-yellow-600 text-sm">Reach 8000+ affection for 0.25% rebates!</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Swap Button */}
                   <button
                     onClick={executeSwap}
@@ -719,104 +1100,10 @@ export default function WooSwapGameified() {
                 </div>
               </div>
             </motion.div>
+            </div>
           )}
 
-          {activeTab === 'quest' && (
-            <motion.div
-              key="quest"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="max-w-4xl mx-auto space-y-6"
-            >
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">🌟 Our Adventures</h2>
-                <p className="text-gray-600 mb-6">Embark on journeys that strengthen your bond</p>
-
-                <button
-                  onClick={generateQuest}
-                  disabled={isGeneratingQuest}
-                  className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-rose-600 disabled:opacity-50 transition-all"
-                >
-                  {isGeneratingQuest ? '✨ Creating adventure...' : '🌟 New Adventure'}
-                </button>
-              </div>
-
-              {/* Quest Grid */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {quests.map((quest) => (
-                  <motion.div
-                    key={quest.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-lg"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800">{quest.title}</h3>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          quest.difficulty === 'gentle' ? 'bg-green-100 text-green-700' :
-                          quest.difficulty === 'steady' ? 'bg-blue-100 text-blue-700' :
-                          quest.difficulty === 'passionate' ? 'bg-purple-100 text-purple-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {quest.difficulty}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold text-pink-600">+{quest.reward}</div>
-                        <div className="text-xs text-gray-500">affection</div>
-                      </div>
-                    </div>
-
-                    <p className="text-gray-600 text-sm mb-4">{quest.description}</p>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">
-                        Expires: {quest.expiresAt.toLocaleDateString()}
-                      </span>
-                      <button className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg text-sm font-medium hover:from-pink-600 hover:to-rose-600 transition-all">
-                        Begin Journey
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-
-                {quests.length === 0 && (
-                  <div className="col-span-full text-center py-12">
-                    <div className="text-4xl mb-4">🌸</div>
-                    <p className="text-gray-500">Generate your first adventure to begin!</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'leaderboard' && (
-            <motion.div
-              key="leaderboard"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="max-w-4xl mx-auto"
-            >
-              <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-pink-200 shadow-xl">
-                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">🏆 Community Hearts</h2>
-
-                <div className="text-center py-12">
-                  <div className="text-4xl mb-4">💖</div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Celebrating Love & Growth</h3>
-                  <p className="text-gray-600 mb-6">
-                    See how your relationship compares with other heartfelt journeys in the community
-                  </p>
-                  <div className="text-sm text-gray-500">
-                    Leaderboard coming soon - focus on your unique bond for now! 🌸
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
     </div>
   )

@@ -1,0 +1,22 @@
+{
+  "name": "woo-swap",
+  "version": "1.0.0",
+  "description": "> **The world's first gamified DEX where you build a relationship with an AI companion to unlock better trading deals.**",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "mocha tests/e2e/wooswap-full-journey.test.js --timeout 60000",
+    "test-all": "mocha tests/**/*.test.js --timeout 60000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "axios": "^1.12.2",
+    "chai": "^6.0.1",
+    "ethers": "^6.15.0",
+    "mocha": "^11.7.2"
+  }
+}
