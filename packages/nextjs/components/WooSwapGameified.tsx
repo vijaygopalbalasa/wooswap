@@ -476,16 +476,36 @@ export default function WooSwapGameified() {
       setChatMessages(prev => [...prev, clingyMessage])
     }
 
-    // Check if user needs to complete a quest first
-    if (!currentQuestHash && companion && companion.affection < 5000) {
-      toast.error('💔 Your companion wants to chat before swapping!')
-
-      const needQuestMessage: ChatMessage = {
-        text: "Hold on babe! Let's have a heart-to-heart chat first 💖 I want to make sure you're making smart trading decisions!",
+    // Smart swap logic: allow high-affection users to swap directly
+    if (companion && companion.affection >= 8000) {
+      // High affection users can swap immediately with rebate celebration
+      const celebrationMessage: ChatMessage = {
+        text: "You get 0.25% rebates because I love you so much! 💕 Let me execute this swap for you right away! ✨",
         isUser: false,
         timestamp: new Date()
       }
-      setChatMessages(prev => [...prev, needQuestMessage])
+      setChatMessages(prev => [...prev, celebrationMessage])
+    } else if (companion && companion.affection >= 5000) {
+      // Medium affection users can swap after brief chat
+      if (!currentQuestHash) {
+        toast.error('💖 Luna wants a quick chat first!')
+        const chatFirstMessage: ChatMessage = {
+          text: "Hey babe! 💕 Let's chat first - I want to make sure this is a good trade for you!",
+          isUser: false,
+          timestamp: new Date()
+        }
+        setChatMessages(prev => [...prev, chatFirstMessage])
+        return
+      }
+    } else {
+      // Low affection users need quest completion
+      toast.error('💔 Build a stronger relationship with Luna first!')
+      const needRelationshipMessage: ChatMessage = {
+        text: "We need to get to know each other better before I can help you trade, sweetheart! 💖 Let's chat more!",
+        isUser: false,
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, needRelationshipMessage])
       return
     }
 
@@ -1026,20 +1046,36 @@ export default function WooSwapGameified() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-                      <div className="bg-pink-50 rounded-xl p-4 border border-pink-200">
-                        <div className="font-medium text-gray-800">MON</div>
-                        <div className="text-sm text-gray-600">
-                          Balance: {fromTokenBalance ? formatEther(fromTokenBalance as bigint) : '0'} MON
-                        </div>
+                      <select
+                        value={fromToken}
+                        onChange={(e) => setFromToken(e.target.value as any)}
+                        className="w-full bg-white/70 rounded-xl p-4 border border-pink-200 focus:border-pink-400 focus:outline-none font-medium text-gray-800"
+                      >
+                        <option value={TOKEN_ADDRESSES.MON}>MON</option>
+                        <option value={TOKEN_ADDRESSES.USDT}>USDT</option>
+                        <option value={TOKEN_ADDRESSES.USDC}>USDC</option>
+                        <option value={TOKEN_ADDRESSES.WETH}>WETH</option>
+                        <option value={TOKEN_ADDRESSES.WBTC}>WBTC</option>
+                      </select>
+                      <div className="text-sm text-gray-600 mt-1 px-1">
+                        Balance: {fromTokenBalance ? formatEther(fromTokenBalance as bigint) : '0'}
                       </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-                      <div className="bg-mint-50 rounded-xl p-4 border border-green-200">
-                        <div className="font-medium text-gray-800">USDT</div>
-                        <div className="text-sm text-gray-600">
-                          Balance: {toTokenBalance ? formatEther(toTokenBalance as bigint) : '0'} USDT
-                        </div>
+                      <select
+                        value={toToken}
+                        onChange={(e) => setToToken(e.target.value as any)}
+                        className="w-full bg-white/70 rounded-xl p-4 border border-green-200 focus:border-green-400 focus:outline-none font-medium text-gray-800"
+                      >
+                        <option value={TOKEN_ADDRESSES.USDT}>USDT</option>
+                        <option value={TOKEN_ADDRESSES.MON}>MON</option>
+                        <option value={TOKEN_ADDRESSES.USDC}>USDC</option>
+                        <option value={TOKEN_ADDRESSES.WETH}>WETH</option>
+                        <option value={TOKEN_ADDRESSES.WBTC}>WBTC</option>
+                      </select>
+                      <div className="text-sm text-gray-600 mt-1 px-1">
+                        Balance: {toTokenBalance ? formatEther(toTokenBalance as bigint) : '0'}
                       </div>
                     </div>
                   </div>

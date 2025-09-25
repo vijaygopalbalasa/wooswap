@@ -104,44 +104,88 @@ const Home: NextPage = () => {
         </main>
 
         {/* Footer */}
-        <footer className="bg-black/20 backdrop-blur-md border-t border-white/10 py-8 text-center text-white/60">
-          <div className="container mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div>
-                <h3 className="font-bold text-white mb-2">WooSwap</h3>
-                <p className="text-sm">The first gamified DEX with AI companions</p>
+        <footer className="relative overflow-hidden py-16">
+          {/* Background Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-blue-500/10"></div>
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
+
+          <div className="relative container mx-auto px-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+              {/* Brand */}
+              <div className="md:col-span-2">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="text-3xl">💖</div>
+                  <div>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+                      WooSwap
+                    </h3>
+                    <p className="text-gray-600 text-sm">AI Girlfriend-Powered DEX</p>
+                  </div>
+                </div>
+                <p className="text-gray-700 max-w-md">
+                  The first emotional trading platform where you build relationships with AI companions
+                  to unlock better deals and learn DeFi safely.
+                </p>
               </div>
+
+              {/* Network Info */}
               <div>
-                <h3 className="font-bold text-white mb-2">Network</h3>
-                <p className="text-sm">Monad Testnet • Chain ID: 10143</p>
+                <h4 className="font-semibold text-gray-800 mb-4">Network</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p>Monad Testnet</p>
+                  <p>Chain ID: 10143</p>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Active</span>
+                  </div>
+                </div>
               </div>
+
+              {/* Resources */}
               <div>
-                <h3 className="font-bold text-white mb-2">Links</h3>
-                <div className="flex justify-center space-x-4">
+                <h4 className="font-semibold text-gray-800 mb-4">Resources</h4>
+                <div className="space-y-3">
                   <a
                     href="https://testnet.monadexplorer.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-pink-400 hover:text-pink-300 transition-colors"
+                    className="flex items-center space-x-2 text-sm text-gray-600 hover:text-pink-600 transition-colors"
                   >
-                    Explorer
+                    <span>🔍</span>
+                    <span>Block Explorer</span>
                   </a>
                   <a
                     href="https://testnet.monad.xyz"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-pink-400 hover:text-pink-300 transition-colors"
+                    className="flex items-center space-x-2 text-sm text-gray-600 hover:text-pink-600 transition-colors"
                   >
-                    Faucet
+                    <span>🚰</span>
+                    <span>Get Test Tokens</span>
+                  </a>
+                  <a
+                    href="https://monad.xyz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-2 text-sm text-gray-600 hover:text-pink-600 transition-colors"
+                  >
+                    <span>⚡</span>
+                    <span>Learn About Monad</span>
                   </a>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-white/10 pt-4">
-              <p className="text-sm">
-                Built with ❤️ for the Monad ecosystem • Production Ready • No Mocks
-              </p>
+            {/* Bottom Bar */}
+            <div className="border-t border-gray-200 pt-8">
+              <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <p className="text-sm text-gray-600">
+                  © 2024 WooSwap. Built with 💖 for the Monad ecosystem.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Testnet Beta • Educational Purposes
+                </p>
+              </div>
             </div>
           </div>
         </footer>
